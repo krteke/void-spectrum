@@ -5,6 +5,8 @@
 
 mod meta;
 mod spec;
+mod value;
 
 pub use meta::{ThemeMeta, ThemeMode};
 pub use spec::ThemeSpec;
+pub use value::{ColorValue, ColorValueParseError, TokenReference};

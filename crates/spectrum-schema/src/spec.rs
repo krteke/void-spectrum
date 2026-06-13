@@ -1,7 +1,9 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use spectrum_core::Color;
 
-use crate::ThemeMeta;
+use crate::{ColorValue, ThemeMeta};
 
 /// A partially specified theme configuration.
 ///
@@ -20,6 +22,9 @@ pub struct ThemeSpec {
     /// Optional brand color used to derive a palette.
     #[serde(default, with = "optional_color")]
     pub seed: Option<Color>,
+    /// Color token overrides keyed by token path.
+    #[serde(default)]
+    pub colors: BTreeMap<String, ColorValue>,
 }
 
 impl ThemeSpec {
@@ -28,6 +33,7 @@ impl ThemeSpec {
         Self {
             meta: ThemeMeta::new(name),
             seed: None,
+            colors: BTreeMap::new(),
         }
     }
 
@@ -35,6 +41,13 @@ impl ThemeSpec {
     #[must_use]
     pub const fn with_seed(mut self, seed: Color) -> Self {
         self.seed = Some(seed);
+        self
+    }
+
+    /// Adds or replaces a color token override.
+    #[must_use]
+    pub fn with_color(mut self, path: impl Into<String>, value: ColorValue) -> Self {
+        self.colors.insert(path.into(), value);
         self
     }
 }
