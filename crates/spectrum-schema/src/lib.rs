@@ -4,5 +4,7 @@
 //! data to resolver behavior or rendering frameworks.
 
 mod meta;
+mod spec;
 
 pub use meta::{ThemeMeta, ThemeMode};
+pub use spec::ThemeSpec;
