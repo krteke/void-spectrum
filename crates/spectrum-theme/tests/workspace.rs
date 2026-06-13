@@ -1,12 +1,8 @@
-//! Workspace skeleton smoke tests.
+//! Tests for stable facade exports.
 
-use spectrum_core as _;
-use spectrum_palette as _;
-use spectrum_resolver as _;
-use spectrum_schema as _;
-use spectrum_theme as _;
+use spectrum_theme::Color;
 
 #[test]
-fn facade_package_uses_the_expected_name() {
-    assert_eq!(env!("CARGO_PKG_NAME"), "spectrum-theme");
+fn facade_exports_stable_core_types() {
+    assert_eq!(Color::new(80, 120, 200).to_string(), "#5078c8");
 }

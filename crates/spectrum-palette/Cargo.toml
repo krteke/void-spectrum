@@ -11,8 +11,10 @@ repository.workspace = true
 [features]
 default = []
 color-spaces = ["dep:palette"]
+seed = ["dep:material-colors"]
 
 [dependencies]
+material-colors = { workspace = true, optional = true }
 palette = { workspace = true, optional = true }
 spectrum-core.workspace = true
 

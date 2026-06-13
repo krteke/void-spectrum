@@ -49,14 +49,14 @@ impl ColorExt for Color {
     }
 }
 
-fn to_oklab(color: Color) -> Oklab {
+pub(crate) fn to_oklab(color: Color) -> Oklab {
     let rgb = color.rgb();
     Srgb::new(rgb.red(), rgb.green(), rgb.blue())
         .into_linear::<f32>()
         .into_color()
 }
 
-fn from_oklab(color: Oklab, source: Color) -> Color {
+pub(crate) fn from_oklab(color: Oklab, source: Color) -> Color {
     let linear: LinSrgb = color.into_color();
     let encoded: Srgb<f32> = Srgb::from_linear(linear);
     let rgb: Srgb<u8> = encoded.clamp().into_format();

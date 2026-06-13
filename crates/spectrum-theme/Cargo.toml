@@ -14,7 +14,7 @@ categories = ["config", "gui"]
 [features]
 default = ["builtin", "seed"]
 builtin = []
-seed = ["spectrum-palette/color-spaces"]
+seed = ["spectrum-palette/seed"]
 serde = ["spectrum-core/serde"]
 json = ["serde", "spectrum-schema/json"]
 toml = ["serde", "spectrum-schema/toml"]
@@ -29,10 +29,6 @@ spectrum-macros = { workspace = true, optional = true }
 spectrum-palette.workspace = true
 spectrum-resolver.workspace = true
 spectrum-schema.workspace = true
-
-[[example]]
-name = "minimal"
-path = "examples/minimal.rs"
 
 [lints]
 workspace = true
