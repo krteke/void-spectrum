@@ -9,9 +9,11 @@
 //! ```
 
 mod color;
+mod font;
 mod length;
 mod radius;
 
 pub use color::{Color, ColorParseError};
+pub use font::{FontWeight, FontWeightParseError};
 pub use length::{Length, LengthParseError, LengthUnit};
 pub use radius::{Radius, RadiusParseError};
