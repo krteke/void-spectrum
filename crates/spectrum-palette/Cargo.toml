@@ -1,0 +1,20 @@
+[package]
+name = "spectrum-palette"
+description = "Seed color and tonal palette boundary for Void Spectrum"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+color-spaces = ["dep:palette"]
+
+[dependencies]
+palette = { workspace = true, optional = true }
+spectrum-core.workspace = true
+
+[lints]
+workspace = true

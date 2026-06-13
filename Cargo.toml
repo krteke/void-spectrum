@@ -1,6 +1,53 @@
-[package]
-name = "void-spectrum"
+[workspace]
+members = [
+    "crates/spectrum-core",
+    "crates/spectrum-export",
+    "crates/spectrum-macros",
+    "crates/spectrum-palette",
+    "crates/spectrum-resolver",
+    "crates/spectrum-schema",
+    "crates/spectrum-theme",
+]
+default-members = ["crates/spectrum-theme"]
+resolver = "3"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
+authors = ["Krteke"]
+license = "MIT"
+repository = "https://github.com/krteke/void-spectrum"
 
-[dependencies]
+[workspace.dependencies]
+palette = { version = "0.7.6", default-features = false, features = ["std"] }
+proc-macro2 = "1.0.106"
+quote = "1.0.45"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+syn = { version = "2.0.117", features = ["full"] }
+thiserror = "2.0.18"
+toml = "1.1.2"
+
+spectrum-core = { version = "0.1.0", path = "crates/spectrum-core" }
+spectrum-export = { version = "0.1.0", path = "crates/spectrum-export" }
+spectrum-macros = { version = "0.1.0", path = "crates/spectrum-macros" }
+spectrum-palette = { version = "0.1.0", path = "crates/spectrum-palette" }
+spectrum-resolver = { version = "0.1.0", path = "crates/spectrum-resolver" }
+spectrum-schema = { version = "0.1.0", path = "crates/spectrum-schema" }
+
+[workspace.lints.rust]
+missing_docs = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unsafe_code = "forbid"
+unreachable_pub = "warn"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+alloc_instead_of_core = "warn"
+std_instead_of_core = "allow"
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"

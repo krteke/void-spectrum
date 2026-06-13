@@ -1,0 +1,38 @@
+[package]
+name = "spectrum-theme"
+description = "Typed theme-token engine facade"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
+keywords = ["theme", "color", "design-tokens", "palette"]
+categories = ["config", "gui"]
+
+[features]
+default = ["builtin", "seed"]
+builtin = []
+seed = ["spectrum-palette/color-spaces"]
+serde = ["spectrum-core/serde"]
+json = ["serde", "spectrum-schema/json"]
+toml = ["serde", "spectrum-schema/toml"]
+macros = ["dep:spectrum-macros"]
+export = ["dep:spectrum-export"]
+export-json = ["export", "spectrum-export/json"]
+
+[dependencies]
+spectrum-core.workspace = true
+spectrum-export = { workspace = true, optional = true }
+spectrum-macros = { workspace = true, optional = true }
+spectrum-palette.workspace = true
+spectrum-resolver.workspace = true
+spectrum-schema.workspace = true
+
+[[example]]
+name = "minimal"
+path = "examples/minimal.rs"
+
+[lints]
+workspace = true
