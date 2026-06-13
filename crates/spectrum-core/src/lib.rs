@@ -14,6 +14,6 @@ mod length;
 mod radius;
 
 pub use color::{Color, ColorParseError};
-pub use font::{FontWeight, FontWeightParseError};
+pub use font::{FontStyle, FontStyleParseError, FontWeight, FontWeightParseError};
 pub use length::{Length, LengthParseError, LengthUnit};
 pub use radius::{Radius, RadiusParseError};
