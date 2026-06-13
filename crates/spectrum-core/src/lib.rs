@@ -11,9 +11,11 @@
 mod color;
 mod font;
 mod length;
+mod line_height;
 mod radius;
 
 pub use color::{Color, ColorParseError};
 pub use font::{FontStyle, FontStyleParseError, FontWeight, FontWeightParseError};
 pub use length::{Length, LengthParseError, LengthUnit};
+pub use line_height::{LineHeight, LineHeightParseError};
 pub use radius::{Radius, RadiusParseError};
