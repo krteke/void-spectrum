@@ -1,4 +1,13 @@
 //! Platform-independent value types and resolved theme contracts.
 //!
-//! Concrete color, dimension, typography, shadow, style, and theme types will
-//! be introduced here as their contracts are implemented.
+//! ```
+//! use spectrum_core::Color;
+//!
+//! let accent: Color = "#7c3aed".parse()?;
+//! assert_eq!(accent.to_string(), "#7c3aed");
+//! # Ok::<(), spectrum_core::ColorParseError>(())
+//! ```
+
+mod color;
+
+pub use color::{Color, ColorParseError};
