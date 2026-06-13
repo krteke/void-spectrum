@@ -9,5 +9,7 @@
 //! ```
 
 mod color;
+mod length;
 
 pub use color::{Color, ColorParseError};
+pub use length::{Length, LengthParseError, LengthUnit};
