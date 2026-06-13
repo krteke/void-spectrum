@@ -5,6 +5,8 @@
 
 mod color;
 mod error;
+mod theme;
 
 pub use color::resolve_colors;
 pub use error::ResolveError;
+pub use theme::{ResolvedTheme, resolve_theme};
