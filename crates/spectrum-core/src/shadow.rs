@@ -8,7 +8,13 @@ use crate::{Color, Length};
 /// use spectrum_core::{Color, Length, LengthUnit, ShadowLayer};
 ///
 /// let px = |value| Length::new(value, LengthUnit::Px).expect("finite");
-/// let shadow = ShadowLayer::new(Color::new(0, 0, 0), px(0.0), px(4.0), px(8.0), px(0.0))?;
+/// let shadow = ShadowLayer::new(
+///     Color::new_rgba(0, 0, 0, 128),
+///     px(0.0),
+///     px(4.0),
+///     px(8.0),
+///     px(0.0),
+/// )?;
 /// assert_eq!(shadow.blur().value(), 8.0);
 /// # Ok::<(), spectrum_core::ShadowError>(())
 /// ```

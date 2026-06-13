@@ -8,10 +8,11 @@ fn px(value: f32) -> Length {
 
 #[test]
 fn stores_all_shadow_components() {
-    let shadow = ShadowLayer::new(Color::new(1, 2, 3), px(-1.0), px(2.0), px(4.0), px(-2.0))
-        .expect("valid shadow");
+    let color = Color::new_rgba(1, 2, 3, 128);
+    let shadow =
+        ShadowLayer::new(color, px(-1.0), px(2.0), px(4.0), px(-2.0)).expect("valid shadow");
 
-    assert_eq!(shadow.color(), Color::new(1, 2, 3));
+    assert_eq!(shadow.color(), color);
     assert_eq!(shadow.offset_x(), px(-1.0));
     assert_eq!(shadow.offset_y(), px(2.0));
     assert_eq!(shadow.blur(), px(4.0));

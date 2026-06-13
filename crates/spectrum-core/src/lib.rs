@@ -15,7 +15,7 @@ mod line_height;
 mod radius;
 mod shadow;
 
-pub use color::{Color, ColorParseError};
+pub use color::{Color, ColorParseError, Rgb, Rgba};
 pub use font::{FontStyle, FontStyleParseError, FontWeight, FontWeightParseError};
 pub use length::{Length, LengthParseError, LengthUnit};
 pub use line_height::{LineHeight, LineHeightParseError};
