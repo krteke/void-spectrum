@@ -47,14 +47,33 @@ fn reports_missing_references_with_both_paths() {
 }
 
 #[test]
-fn leaves_reference_chains_for_the_recursive_resolver() {
+fn resolves_reference_chains() {
     let spec = ThemeSpec::new("Demo")
         .with_color("first", "{second}".parse().expect("reference"))
         .with_color("second", "{third}".parse().expect("reference"))
         .with_color("third", "#5078c8".parse().expect("literal"));
 
-    assert!(matches!(
+    let colors = resolve_colors(&spec).expect("resolved");
+    assert_eq!(colors["first"], Color::new(80, 120, 200));
+    assert_eq!(colors["second"], colors["third"]);
+}
+
+#[test]
+fn reports_closed_cycle_chain() {
+    let spec = ThemeSpec::new("Demo")
+        .with_color("first", "{second}".parse().expect("reference"))
+        .with_color("second", "{third}".parse().expect("reference"))
+        .with_color("third", "{first}".parse().expect("reference"));
+
+    assert_eq!(
         resolve_colors(&spec),
-        Err(ResolveError::UnresolvedReference { .. })
-    ));
+        Err(ResolveError::CircularReference {
+            chain: vec![
+                "first".to_owned(),
+                "second".to_owned(),
+                "third".to_owned(),
+                "first".to_owned(),
+            ],
+        })
+    );
 }

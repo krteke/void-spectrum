@@ -9,4 +9,10 @@ pub enum ResolveError {
         /// Referenced token path.
         reference: String,
     },
+    /// Color token references form a cycle.
+    #[error("circular color reference: {}", chain.join(" -> "))]
+    CircularReference {
+        /// Ordered reference chain with the first token repeated at the end.
+        chain: Vec<String>,
+    },
 }

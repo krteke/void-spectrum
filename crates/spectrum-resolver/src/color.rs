@@ -5,7 +5,7 @@ use spectrum_schema::{ColorValue, ThemeSpec};
 
 use crate::ResolveError;
 
-/// Resolves direct colors and references to direct colors.
+/// Resolves direct colors and recursive token references.
 ///
 /// ```
 /// use spectrum_core::Color;
@@ -20,27 +20,44 @@ use crate::ResolveError;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn resolve_colors(spec: &ThemeSpec) -> Result<BTreeMap<String, Color>, ResolveError> {
-    let mut resolved = spec
-        .colors
-        .iter()
-        .filter_map(|(path, value)| match value {
-            ColorValue::Literal(color) => Some((path.clone(), *color)),
-            ColorValue::Reference(_) => None,
-        })
-        .collect::<BTreeMap<_, _>>();
+    let mut resolved = BTreeMap::new();
+    for path in spec.colors.keys() {
+        let mut chain = Vec::new();
+        resolve_color(path, &spec.colors, &mut resolved, &mut chain)?;
+    }
+    Ok(resolved)
+}
 
-    for (path, value) in &spec.colors {
-        let ColorValue::Reference(reference) = value else {
-            continue;
-        };
-        let color = resolved.get(reference.path()).copied().ok_or_else(|| {
-            ResolveError::UnresolvedReference {
-                token: path.clone(),
-                reference: reference.path().to_owned(),
-            }
-        })?;
-        resolved.insert(path.clone(), color);
+fn resolve_color(
+    path: &str,
+    values: &BTreeMap<String, ColorValue>,
+    resolved: &mut BTreeMap<String, Color>,
+    chain: &mut Vec<String>,
+) -> Result<Color, ResolveError> {
+    if let Some(color) = resolved.get(path) {
+        return Ok(*color);
+    }
+    if let Some(start) = chain.iter().position(|entry| entry == path) {
+        let mut cycle = chain[start..].to_vec();
+        cycle.push(path.to_owned());
+        return Err(ResolveError::CircularReference { chain: cycle });
     }
 
-    Ok(resolved)
+    chain.push(path.to_owned());
+    let value = values.get(path).expect("path originates from theme colors");
+    let color = match value {
+        ColorValue::Literal(color) => *color,
+        ColorValue::Reference(reference) => {
+            if !values.contains_key(reference.path()) {
+                return Err(ResolveError::UnresolvedReference {
+                    token: path.to_owned(),
+                    reference: reference.path().to_owned(),
+                });
+            }
+            resolve_color(reference.path(), values, resolved, chain)?
+        }
+    };
+    chain.pop();
+    resolved.insert(path.to_owned(), color);
+    Ok(color)
 }
