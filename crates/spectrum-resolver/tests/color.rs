@@ -96,6 +96,21 @@ fn preserves_material_sources_without_resolving_a_seed() {
 }
 
 #[test]
+fn preserves_extended_material_roles() {
+    let spec = ThemeSpec::new("Dynamic").with_color(
+        "panel.background",
+        "{material.secondary_container}"
+            .parse()
+            .expect("material reference"),
+    );
+
+    assert_eq!(
+        resolve_colors(&spec).expect("resolved")["panel.background"],
+        ColorBinding::Material(MaterialColor::SecondaryContainer)
+    );
+}
+
+#[test]
 fn one_binding_resolves_against_multiple_seeds() {
     let spec = ThemeSpec::new("Dynamic").with_color(
         "accent.primary",
