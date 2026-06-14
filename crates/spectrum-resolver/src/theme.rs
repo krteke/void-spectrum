@@ -3,13 +3,13 @@ use std::collections::BTreeMap;
 use spectrum_core::Color;
 use spectrum_schema::{ThemeMeta, ThemeSpec};
 
-use crate::{ResolveError, resolve_colors};
+use crate::{ColorBinding, ResolveError, resolve_colors};
 
 /// A theme whose configured color references have been fully resolved.
 ///
 /// ```
 /// use spectrum_core::Color;
-/// use spectrum_resolver::resolve_theme;
+/// use spectrum_resolver::{ColorBinding, resolve_theme};
 /// use spectrum_schema::ThemeSpec;
 ///
 /// let spec = ThemeSpec::new("Demo")
@@ -17,7 +17,7 @@ use crate::{ResolveError, resolve_colors};
 ///     .with_color("accent", "#5078c8".parse()?);
 /// let theme = resolve_theme(&spec)?;
 /// assert_eq!(theme.meta.name, "Demo");
-/// assert_eq!(theme.colors["accent"], Color::new(80, 120, 200));
+/// assert_eq!(theme.colors["accent"], ColorBinding::Color(Color::new(80, 120, 200)));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,8 +26,8 @@ pub struct ResolvedTheme {
     pub meta: ThemeMeta,
     /// Optional source color for future palette derivation.
     pub seed: Option<Color>,
-    /// Fully resolved configured color tokens.
-    pub colors: BTreeMap<String, Color>,
+    /// Color bindings with token references fully expanded.
+    pub colors: BTreeMap<String, ColorBinding>,
 }
 
 /// Resolves a theme specification into an owned theme.

@@ -1,7 +1,8 @@
 //! Tests for the initial color resolution pass.
 
 use spectrum_core::Color;
-use spectrum_resolver::{ResolveError, resolve_colors};
+use spectrum_palette::{MaterialColor, material_colors};
+use spectrum_resolver::{ColorBinding, ResolveError, resolve_colors};
 use spectrum_schema::{ColorValue, ThemeSpec};
 
 #[test]
@@ -13,7 +14,7 @@ fn resolves_direct_color_values() {
 
     assert_eq!(
         resolve_colors(&spec).expect("resolved")["accent.primary"],
-        Color::new(80, 120, 200)
+        ColorBinding::Color(Color::new(80, 120, 200))
     );
 }
 
@@ -54,7 +55,10 @@ fn resolves_reference_chains() {
         .with_color("third", "#5078c8".parse().expect("literal"));
 
     let colors = resolve_colors(&spec).expect("resolved");
-    assert_eq!(colors["first"], Color::new(80, 120, 200));
+    assert_eq!(
+        colors["first"],
+        ColorBinding::Color(Color::new(80, 120, 200))
+    );
     assert_eq!(colors["second"], colors["third"]);
 }
 
@@ -76,4 +80,30 @@ fn reports_closed_cycle_chain() {
             ],
         })
     );
+}
+
+#[test]
+fn preserves_material_sources_without_resolving_a_seed() {
+    let spec = ThemeSpec::new("Dynamic").with_color(
+        "accent.primary",
+        "{material.primary}".parse().expect("material reference"),
+    );
+
+    assert_eq!(
+        resolve_colors(&spec).expect("resolved")["accent.primary"],
+        ColorBinding::Material(MaterialColor::Primary)
+    );
+}
+
+#[test]
+fn one_binding_resolves_against_multiple_seeds() {
+    let spec = ThemeSpec::new("Dynamic").with_color(
+        "accent.primary",
+        "{material.primary}".parse().expect("material reference"),
+    );
+    let binding = resolve_colors(&spec).expect("resolved")["accent.primary"];
+    let blue = material_colors(Color::new(0, 0, 255), spec.meta.mode);
+    let red = material_colors(Color::new(255, 0, 0), spec.meta.mode);
+
+    assert_ne!(binding.resolve(blue), binding.resolve(red));
 }

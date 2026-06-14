@@ -3,7 +3,7 @@
 #![cfg(feature = "seed")]
 
 use spectrum_core::{Color, ThemeMode};
-use spectrum_palette::semantic_colors;
+use spectrum_palette::{MaterialColor, material_colors, semantic_colors};
 
 #[test]
 fn maps_blue_seed_to_light_core_semantics() {
@@ -25,4 +25,19 @@ fn maps_blue_seed_to_dark_core_semantics() {
     assert_eq!(colors.background, colors.surface);
     assert_eq!(colors.on_background, colors.on_surface);
     assert_eq!(colors.error, Color::new(0xff, 0xb4, 0xab));
+}
+
+#[test]
+fn material_roles_parse_and_select_generated_colors() {
+    let colors = material_colors(Color::new(0, 0, 255), ThemeMode::Light);
+
+    assert_eq!(
+        colors.resolve(MaterialColor::Primary),
+        Color::new(0x34, 0x3d, 0xff)
+    );
+    assert_eq!(
+        MaterialColor::from_name("primary"),
+        Some(MaterialColor::Primary)
+    );
+    assert_eq!(MaterialColor::from_name("unknown"), None);
 }

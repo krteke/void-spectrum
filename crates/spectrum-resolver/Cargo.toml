@@ -14,5 +14,8 @@ spectrum-core.workspace = true
 spectrum-palette.workspace = true
 spectrum-schema.workspace = true
 
+[dev-dependencies]
+spectrum-palette = { workspace = true, features = ["seed"] }
+
 [lints]
 workspace = true

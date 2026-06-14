@@ -1,7 +1,8 @@
 //! Tests for the resolved theme output.
 
 use spectrum_core::Color;
-use spectrum_resolver::{ResolveError, resolve_theme};
+use spectrum_palette::MaterialColor;
+use spectrum_resolver::{ColorBinding, ResolveError, resolve_theme};
 use spectrum_schema::{ThemeMode, ThemeSpec};
 
 #[test]
@@ -17,7 +18,10 @@ fn resolves_an_owned_theme_output() {
     assert_eq!(theme.meta.name, "Demo");
     assert_eq!(theme.meta.mode, ThemeMode::Light);
     assert_eq!(theme.seed, Some(Color::new(10, 20, 30)));
-    assert_eq!(theme.colors["focus"], Color::new(80, 120, 200));
+    assert_eq!(
+        theme.colors["focus"],
+        ColorBinding::Color(Color::new(80, 120, 200))
+    );
 }
 
 #[test]
@@ -41,6 +45,50 @@ fn propagates_color_resolution_errors() {
         Err(ResolveError::UnresolvedReference {
             token: "focus".to_owned(),
             reference: "missing".to_owned(),
+        })
+    );
+}
+
+#[test]
+fn binds_material_sources_to_configured_tokens() {
+    let mut spec = ThemeSpec::new("Seeded")
+        .with_seed(Color::new(0, 0, 255))
+        .with_color(
+            "button.background",
+            "{material.primary}".parse().expect("material reference"),
+        )
+        .with_color(
+            "button.hover",
+            "{button.background}".parse().expect("token reference"),
+        );
+    spec.meta.mode = ThemeMode::Light;
+
+    let theme = resolve_theme(&spec).expect("resolved theme");
+
+    assert_eq!(
+        theme.colors["button.background"],
+        ColorBinding::Material(MaterialColor::Primary)
+    );
+    assert_eq!(
+        theme.colors["button.hover"],
+        theme.colors["button.background"]
+    );
+}
+
+#[test]
+fn rejects_unknown_material_roles() {
+    let spec = ThemeSpec::new("Seeded")
+        .with_seed(Color::new(0, 0, 255))
+        .with_color(
+            "button.background",
+            "{material.unknown}".parse().expect("material reference"),
+        );
+
+    assert_eq!(
+        resolve_theme(&spec),
+        Err(ResolveError::UnresolvedReference {
+            token: "button.background".to_owned(),
+            reference: "material.unknown".to_owned(),
         })
     );
 }
