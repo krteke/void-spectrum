@@ -58,6 +58,64 @@ pub struct SemanticColors {
     pub surface: Color,
     /// Foreground content rendered on component surfaces.
     pub on_surface: Color,
+    /// Dim surface used for low-emphasis areas.
+    pub surface_dim: Color,
+    /// Bright surface used for high-emphasis areas.
+    pub surface_bright: Color,
+    /// Lowest surface container level.
+    pub surface_container_lowest: Color,
+    /// Low surface container level.
+    pub surface_container_low: Color,
+    /// Default surface container level.
+    pub surface_container: Color,
+    /// High surface container level.
+    pub surface_container_high: Color,
+    /// Highest surface container level.
+    pub surface_container_highest: Color,
+    /// Variant surface color.
+    pub surface_variant: Color,
+    /// Foreground content rendered on variant surfaces.
+    pub on_surface_variant: Color,
+    /// Surface used in inverse color contexts.
+    pub inverse_surface: Color,
+    /// Foreground content rendered on the inverse surface.
+    pub inverse_on_surface: Color,
+    /// Default outline color.
+    pub outline: Color,
+    /// Lower-emphasis outline color.
+    pub outline_variant: Color,
+    /// Shadow color.
+    pub shadow: Color,
+    /// Scrim color.
+    pub scrim: Color,
+    /// Surface tint derived from the primary domain.
+    pub surface_tint: Color,
+    /// Primary accent used on inverse surfaces.
+    pub inverse_primary: Color,
+    /// Mode-independent primary fixed color.
+    pub primary_fixed: Color,
+    /// Dimmed primary fixed color.
+    pub primary_fixed_dim: Color,
+    /// Foreground content on primary fixed colors.
+    pub on_primary_fixed: Color,
+    /// Variant foreground content on primary fixed colors.
+    pub on_primary_fixed_variant: Color,
+    /// Mode-independent secondary fixed color.
+    pub secondary_fixed: Color,
+    /// Dimmed secondary fixed color.
+    pub secondary_fixed_dim: Color,
+    /// Foreground content on secondary fixed colors.
+    pub on_secondary_fixed: Color,
+    /// Variant foreground content on secondary fixed colors.
+    pub on_secondary_fixed_variant: Color,
+    /// Mode-independent tertiary fixed color.
+    pub tertiary_fixed: Color,
+    /// Dimmed tertiary fixed color.
+    pub tertiary_fixed_dim: Color,
+    /// Foreground content on tertiary fixed colors.
+    pub on_tertiary_fixed: Color,
+    /// Variant foreground content on tertiary fixed colors.
+    pub on_tertiary_fixed_variant: Color,
     /// Color used for errors and destructive states.
     pub error: Color,
     /// Foreground content rendered on the error color.
