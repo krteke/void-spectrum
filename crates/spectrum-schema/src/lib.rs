@@ -7,6 +7,7 @@ mod meta;
 mod spec;
 mod value;
 
-pub use meta::{ThemeMeta, ThemeMode};
+pub use meta::ThemeMeta;
 pub use spec::ThemeSpec;
+pub use spectrum_core::ThemeMode;
 pub use value::{ColorValue, ColorValueParseError, TokenReference};

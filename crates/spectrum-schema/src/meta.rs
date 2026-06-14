@@ -1,26 +1,5 @@
-use core::fmt;
-
 use serde::{Deserialize, Serialize};
-
-/// Whether a theme targets a light or dark surface.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ThemeMode {
-    /// A theme intended for dark surfaces.
-    #[default]
-    Dark,
-    /// A theme intended for light surfaces.
-    Light,
-}
-
-impl fmt::Display for ThemeMode {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            Self::Dark => "dark",
-            Self::Light => "light",
-        })
-    }
-}
+use spectrum_core::ThemeMode;
 
 /// Human-readable metadata attached to a theme specification.
 ///

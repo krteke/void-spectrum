@@ -17,7 +17,7 @@ toml = ["dep:toml"]
 serde.workspace = true
 serde_json = { workspace = true, optional = true }
 toml = { workspace = true, optional = true }
-spectrum-core.workspace = true
+spectrum-core = { workspace = true, features = ["serde"] }
 
 [lints]
 workspace = true

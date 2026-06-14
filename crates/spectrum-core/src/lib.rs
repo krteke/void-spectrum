@@ -14,6 +14,7 @@ mod length;
 mod line_height;
 mod radius;
 mod shadow;
+mod theme;
 
 pub use color::{Color, ColorParseError, Rgb, Rgba};
 pub use font::{FontStyle, FontStyleParseError, FontWeight, FontWeightParseError};
@@ -21,3 +22,4 @@ pub use length::{Length, LengthParseError, LengthUnit};
 pub use line_height::{LineHeight, LineHeightParseError};
 pub use radius::{Radius, RadiusParseError};
 pub use shadow::{ShadowError, ShadowLayer};
+pub use theme::{SemanticColors, ThemeMode};
