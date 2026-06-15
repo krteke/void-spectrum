@@ -28,3 +28,11 @@ mode = "light"
 [line_heights]
 "line_height.body" = "1.5"
 "editor.line_height" = "20px"
+
+[[shadows]]
+path = "shadow.card"
+color = "#00000040"
+offset_x = "0px"
+offset_y = "2px"
+blur = "8px"
+spread = "0px"

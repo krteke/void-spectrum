@@ -2,7 +2,9 @@
 
 use spectrum_core::{Color, FontStyle, FontWeight, Length, LengthUnit, LineHeight, Radius};
 use spectrum_schema::LineHeightValue;
-use spectrum_schema::{FontStyleValue, FontWeightValue, LengthValue, RadiusValue, ThemeSpec};
+use spectrum_schema::{
+    FontStyleValue, FontWeightValue, LengthValue, RadiusValue, ShadowSpec, ThemeSpec,
+};
 
 #[test]
 fn constructor_has_no_seed() {
@@ -67,6 +69,25 @@ fn builder_adds_line_height_overrides() {
         spec.line_heights["body"],
         LineHeightValue::Literal(line_height)
     );
+}
+
+#[test]
+fn builder_preserves_shadow_order() {
+    let px = |value| Length::new(value, LengthUnit::Px).expect("finite");
+    let shadow = |path: &str| ShadowSpec {
+        path: path.to_owned(),
+        color: Color::new(0, 0, 0),
+        offset_x: px(0.0),
+        offset_y: px(2.0),
+        blur: px(4.0),
+        spread: px(0.0),
+    };
+    let spec = ThemeSpec::new("Midnight")
+        .with_shadow(shadow("shadow.card"))
+        .with_shadow(shadow("shadow.dialog"));
+
+    assert_eq!(spec.shadows[0].path, "shadow.card");
+    assert_eq!(spec.shadows[1].path, "shadow.dialog");
 }
 
 #[cfg(feature = "json")]
@@ -140,4 +161,34 @@ fn toml_decodes_line_height_overrides() {
     let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
 
     assert_eq!(spec.line_heights["body"].to_string(), "20px");
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn toml_decodes_ordered_shadow_tables() {
+    let source = r##"
+[meta]
+name = "Dawn"
+
+[[shadows]]
+path = "shadow.card"
+color = "#00000040"
+offset_x = "0px"
+offset_y = "2px"
+blur = "4px"
+spread = "0px"
+
+[[shadows]]
+path = "shadow.dialog"
+color = "#00000080"
+offset_x = "0px"
+offset_y = "8px"
+blur = "24px"
+spread = "-2px"
+"##;
+    let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
+
+    assert_eq!(spec.shadows[0].path, "shadow.card");
+    assert_eq!(spec.shadows[1].path, "shadow.dialog");
+    assert_eq!(spec.shadows[1].spread.to_string(), "-2px");
 }

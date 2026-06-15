@@ -36,7 +36,9 @@ pub enum ThemeBuildError {
 #[cfg(feature = "macros")]
 #[doc(hidden)]
 pub mod __private {
-    use super::{Color, FontStyle, FontWeight, Length, LineHeight, Radius, ThemeBuildError};
+    use super::{
+        Color, FontStyle, FontWeight, Length, LineHeight, Radius, ShadowLayer, ThemeBuildError,
+    };
 
     pub use spectrum_palette::MaterialColor;
     pub use spectrum_resolver::{ColorBinding, ResolvedTheme};
@@ -68,6 +70,10 @@ pub mod __private {
 
     pub trait LineHeightSource: TokenSource {
         fn line_height(&self, path: &str) -> Result<LineHeight, Self::Error>;
+    }
+
+    pub trait ShadowSource: TokenSource {
+        fn shadow(&self, path: &str) -> Result<ShadowLayer, Self::Error>;
     }
 
     pub trait TokenValue<S: TokenSource>: Sized {
@@ -107,6 +113,12 @@ pub mod __private {
     impl<S: LineHeightSource> TokenValue<S> for LineHeight {
         fn read(source: &S, path: &str) -> Result<Self, S::Error> {
             source.line_height(path)
+        }
+    }
+
+    impl<S: ShadowSource> TokenValue<S> for ShadowLayer {
+        fn read(source: &S, path: &str) -> Result<Self, S::Error> {
+            source.shadow(path)
         }
     }
 
@@ -162,6 +174,12 @@ pub mod __private {
         }
     }
 
+    impl ShadowSource for ResolvedTheme {
+        fn shadow(&self, path: &str) -> Result<ShadowLayer, Self::Error> {
+            resolve_shadow(self, path)
+        }
+    }
+
     impl TokenSource for SeededTheme<'_> {
         type Error = ThemeBuildError;
     }
@@ -200,6 +218,22 @@ pub mod __private {
         fn line_height(&self, path: &str) -> Result<LineHeight, Self::Error> {
             resolve_line_height(self.theme, path)
         }
+    }
+
+    impl ShadowSource for SeededTheme<'_> {
+        fn shadow(&self, path: &str) -> Result<ShadowLayer, Self::Error> {
+            resolve_shadow(self.theme, path)
+        }
+    }
+
+    fn resolve_shadow(theme: &ResolvedTheme, path: &str) -> Result<ShadowLayer, ThemeBuildError> {
+        theme
+            .shadows
+            .iter()
+            .find_map(|(token, layer)| (token == path).then_some(*layer))
+            .ok_or_else(|| ThemeBuildError::MissingToken {
+                path: path.to_owned(),
+            })
     }
 
     fn resolve_line_height(

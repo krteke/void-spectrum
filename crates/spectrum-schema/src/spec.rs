@@ -5,7 +5,7 @@ use spectrum_core::Color;
 
 use crate::{
     ColorValue, FontStyleValue, FontWeightValue, LengthValue, LineHeightValue, RadiusValue,
-    ThemeMeta,
+    ShadowSpec, ThemeMeta,
 };
 
 /// A partially specified theme configuration.
@@ -43,6 +43,9 @@ pub struct ThemeSpec {
     /// Line-height token overrides keyed by token path.
     #[serde(default)]
     pub line_heights: BTreeMap<String, LineHeightValue>,
+    /// Ordered shadow layer token definitions.
+    #[serde(default)]
+    pub shadows: Vec<ShadowSpec>,
 }
 
 impl ThemeSpec {
@@ -57,6 +60,7 @@ impl ThemeSpec {
             font_weights: BTreeMap::new(),
             font_styles: BTreeMap::new(),
             line_heights: BTreeMap::new(),
+            shadows: Vec::new(),
         }
     }
 
@@ -106,6 +110,13 @@ impl ThemeSpec {
     #[must_use]
     pub fn with_line_height(mut self, path: impl Into<String>, value: LineHeightValue) -> Self {
         self.line_heights.insert(path.into(), value);
+        self
+    }
+
+    /// Appends a shadow layer while preserving declaration order.
+    #[must_use]
+    pub fn with_shadow(mut self, shadow: ShadowSpec) -> Self {
+        self.shadows.push(shadow);
         self
     }
 }

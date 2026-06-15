@@ -5,6 +5,7 @@
 
 mod error;
 mod meta;
+mod shadow;
 mod spec;
 mod value;
 
@@ -13,6 +14,7 @@ pub use error::{
     LengthValueParseError, LineHeightValueParseError, RadiusValueParseError,
 };
 pub use meta::ThemeMeta;
+pub use shadow::ShadowSpec;
 pub use spec::ThemeSpec;
 pub use spectrum_core::ThemeMode;
 pub use value::{

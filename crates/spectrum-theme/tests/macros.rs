@@ -11,10 +11,10 @@ use spectrum_schema::ThemeSpec;
 use spectrum_theme::{
     __private::{
         ColorSource, FontStyleSource, FontWeightSource, LengthSource, LineHeightSource,
-        RadiusSource, TokenSource,
+        RadiusSource, ShadowSource, TokenSource,
     },
-    Color, FontStyle, FontWeight, Length, LengthUnit, LineHeight, Radius, ThemeBuildError,
-    define_theme_tokens, include_theme_tokens,
+    Color, FontStyle, FontWeight, Length, LengthUnit, LineHeight, Radius, ShadowLayer,
+    ThemeBuildError, define_theme_tokens, include_theme_tokens,
 };
 
 define_theme_tokens! {
@@ -34,6 +34,14 @@ define_theme_tokens! {
         }
         line_height {
             body: LineHeight,
+        }
+    }
+}
+
+define_theme_tokens! {
+    struct ShadowTheme {
+        shadow {
+            card: ShadowLayer,
         }
     }
 }
@@ -126,6 +134,16 @@ impl LineHeightSource for StaticSource {
     }
 }
 
+impl ShadowSource for StaticSource {
+    fn shadow(&self, _: &str) -> Result<ShadowLayer, Self::Error> {
+        let px = |value| Length::new(value, LengthUnit::Px).expect("finite");
+        Ok(
+            ShadowLayer::new(Color::new(0, 0, 0), px(0.0), px(2.0), px(6.0), px(0.0))
+                .expect("shadow"),
+        )
+    }
+}
+
 struct LengthOnlySource;
 
 impl TokenSource for LengthOnlySource {
@@ -205,6 +223,9 @@ fn builds_from_a_custom_token_source() {
     assert_eq!(file_theme.editor.font_style, FontStyle::Oblique);
     assert_eq!(file_theme.line_height.body.to_string(), "1.25");
     assert_eq!(file_theme.editor.line_height.to_string(), "1.25");
+    assert_eq!(file_theme.shadow.card.blur().to_string(), "6px");
+    let shadow_theme = ShadowTheme::try_from_source(&StaticSource).expect("shadow theme");
+    assert_eq!(shadow_theme.shadow.card.blur().to_string(), "6px");
 
     let length_theme = LengthTheme::try_from_source(&LengthOnlySource).expect("length theme");
     assert_eq!(length_theme.spacing.medium.to_string(), "12px");
@@ -254,6 +275,7 @@ fn file_contract_loads_embedded_values_and_supports_seed_override() {
 
     assert_ne!(blue.editor.cursor, red.editor.cursor);
     assert_eq!(blue.editor.selection.background, Color::new(16, 32, 48));
+    assert_eq!(blue.shadow.card.blur().to_string(), "8px");
     assert_eq!(
         blue.editor.selection.foreground,
         blue.editor.selection.background
@@ -281,6 +303,17 @@ fn typed_build_reports_missing_line_height_tokens() {
     assert!(matches!(
         LineHeightTheme::try_from_source(&resolved),
         Err(ThemeBuildError::MissingToken { path }) if path == "line_height.body"
+    ));
+}
+
+#[cfg(feature = "seed")]
+#[test]
+fn typed_build_reports_missing_shadow_tokens() {
+    let resolved = resolve_theme(&ThemeSpec::new("Empty")).expect("resolved");
+
+    assert!(matches!(
+        ShadowTheme::try_from_source(&resolved),
+        Err(ThemeBuildError::MissingToken { path }) if path == "shadow.card"
     ));
 }
 

@@ -27,6 +27,8 @@ pub struct ShadowLayer {
     spread: Length,
 }
 
+impl Eq for ShadowLayer {}
+
 impl ShadowLayer {
     /// Creates a shadow layer, rejecting a negative blur radius.
     pub fn new(

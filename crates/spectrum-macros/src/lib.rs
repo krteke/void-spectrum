@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
-use spectrum_core::Color;
+use spectrum_core::{Color, ShadowLayer};
 use spectrum_resolver::{ColorBinding, ResolvedTheme, resolve_theme};
 use spectrum_schema::{ThemeMode, ThemeSpec};
 use std::{collections::BTreeMap, fs};
@@ -174,6 +174,7 @@ fn include_schema(mut schema: ThemeSchema, path: &LitStr) -> Result<TokenStream2
     let font_weight: Type = syn::parse2(quote!(#facade::FontWeight))?;
     let font_style: Type = syn::parse2(quote!(#facade::FontStyle))?;
     let line_height: Type = syn::parse2(quote!(#facade::LineHeight))?;
+    let shadow: Type = syn::parse2(quote!(#facade::ShadowLayer))?;
     let entries = resolved
         .colors
         .keys()
@@ -207,6 +208,12 @@ fn include_schema(mut schema: ThemeSchema, path: &LitStr) -> Result<TokenStream2
                 .line_heights
                 .keys()
                 .map(|path| (token_segments(path), line_height.clone())),
+        )
+        .chain(
+            resolved
+                .shadows
+                .iter()
+                .map(|(path, _)| (token_segments(path), shadow.clone())),
         )
         .collect::<Vec<_>>();
     schema.2 = file_tokens(&entries, path.span())?;
@@ -303,6 +310,11 @@ fn resolved_theme_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStr
                 .expect("embedded line height was validated at compile time")
         ))
     });
+    let shadows = theme.shadows.iter().map(|(path, shadow)| {
+        let path = LitStr::new(path, Span::call_site());
+        let shadow = shadow_expr(*shadow, facade);
+        quote!((#path.to_owned(), #shadow))
+    });
 
     quote! {
         #facade::__private::ResolvedTheme {
@@ -320,8 +332,28 @@ fn resolved_theme_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStr
             font_weights: ::std::collections::BTreeMap::from([#(#font_weights),*]),
             font_styles: ::std::collections::BTreeMap::from([#(#font_styles),*]),
             line_heights: ::std::collections::BTreeMap::from([#(#line_heights),*]),
+            shadows: ::std::vec![#(#shadows),*],
         }
     }
+}
+
+fn shadow_expr(shadow: ShadowLayer, facade: &TokenStream2) -> TokenStream2 {
+    let color = color_expr(shadow.color(), facade);
+    let lengths = [
+        shadow.offset_x(),
+        shadow.offset_y(),
+        shadow.blur(),
+        shadow.spread(),
+    ]
+    .map(|length| length.to_string());
+    let [offset_x, offset_y, blur, spread] = lengths;
+    quote!(#facade::ShadowLayer::new(
+        #color,
+        #offset_x.parse().expect("embedded shadow offset was validated"),
+        #offset_y.parse().expect("embedded shadow offset was validated"),
+        #blur.parse().expect("embedded shadow blur was validated"),
+        #spread.parse().expect("embedded shadow spread was validated"),
+    ).expect("embedded shadow was validated"))
 }
 
 fn option_string(value: Option<&String>) -> TokenStream2 {
