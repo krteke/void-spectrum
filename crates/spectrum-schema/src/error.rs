@@ -1,5 +1,7 @@
 use core::fmt;
-use spectrum_core::{ColorParseError, FontWeightParseError, LengthParseError, RadiusParseError};
+use spectrum_core::{
+    ColorParseError, FontStyleParseError, FontWeightParseError, LengthParseError, RadiusParseError,
+};
 
 /// Describes why a color value could not be parsed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,3 +82,23 @@ impl fmt::Display for FontWeightValueParseError {
 }
 
 impl std::error::Error for FontWeightValueParseError {}
+
+/// Describes why a font-style token value could not be parsed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FontStyleValueParseError {
+    /// The direct font style is invalid.
+    InvalidFontStyle(FontStyleParseError),
+    /// The token reference syntax is invalid.
+    InvalidReference,
+}
+
+impl fmt::Display for FontStyleValueParseError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidFontStyle(error) => error.fmt(formatter),
+            Self::InvalidReference => formatter.write_str("invalid font-style token reference"),
+        }
+    }
+}
+
+impl std::error::Error for FontStyleValueParseError {}

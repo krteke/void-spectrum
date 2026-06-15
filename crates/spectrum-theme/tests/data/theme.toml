@@ -20,3 +20,7 @@ mode = "light"
 [font_weights]
 "font.body" = "450"
 "editor.font_weight" = "{font.body}"
+
+[font_styles]
+"font.style" = "italic"
+"editor.font_style" = "{font.style}"

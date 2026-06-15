@@ -9,8 +9,10 @@ use spectrum_resolver::resolve_theme;
 #[cfg(feature = "seed")]
 use spectrum_schema::ThemeSpec;
 use spectrum_theme::{
-    __private::{ColorSource, FontWeightSource, LengthSource, RadiusSource, TokenSource},
-    Color, FontWeight, Length, LengthUnit, Radius, ThemeBuildError, define_theme_tokens,
+    __private::{
+        ColorSource, FontStyleSource, FontWeightSource, LengthSource, RadiusSource, TokenSource,
+    },
+    Color, FontStyle, FontWeight, Length, LengthUnit, Radius, ThemeBuildError, define_theme_tokens,
     include_theme_tokens,
 };
 
@@ -27,6 +29,15 @@ define_theme_tokens! {
         }
         font {
             body: FontWeight,
+            style: FontStyle,
+        }
+    }
+}
+
+define_theme_tokens! {
+    struct FontStyleTheme {
+        font {
+            style: FontStyle,
         }
     }
 }
@@ -91,6 +102,12 @@ impl FontWeightSource for StaticSource {
     }
 }
 
+impl FontStyleSource for StaticSource {
+    fn font_style(&self, _: &str) -> Result<FontStyle, Self::Error> {
+        Ok(FontStyle::Oblique)
+    }
+}
+
 struct LengthOnlySource;
 
 impl TokenSource for LengthOnlySource {
@@ -127,6 +144,18 @@ impl FontWeightSource for FontWeightOnlySource {
     }
 }
 
+struct FontStyleOnlySource;
+
+impl TokenSource for FontStyleOnlySource {
+    type Error = Infallible;
+}
+
+impl FontStyleSource for FontStyleOnlySource {
+    fn font_style(&self, _: &str) -> Result<FontStyle, Self::Error> {
+        Ok(FontStyle::Italic)
+    }
+}
+
 #[test]
 fn builds_from_a_custom_token_source() {
     let theme = AppTheme::try_from_source(&StaticSource).expect("typed theme");
@@ -135,11 +164,14 @@ fn builds_from_a_custom_token_source() {
     assert_eq!(theme.spacing.medium.to_string(), "9px");
     assert_eq!(theme.radius.card.to_string(), "7px");
     assert_eq!(theme.font.body.value(), 700);
+    assert_eq!(theme.font.style, FontStyle::Oblique);
     assert_eq!(file_theme.editor.selection.background, Color::new(1, 2, 3));
     assert_eq!(file_theme.spacing.medium.to_string(), "9px");
     assert_eq!(file_theme.radius.card.to_string(), "7px");
     assert_eq!(file_theme.font.body.value(), 700);
     assert_eq!(file_theme.editor.font_weight.value(), 700);
+    assert_eq!(file_theme.font.style, FontStyle::Oblique);
+    assert_eq!(file_theme.editor.font_style, FontStyle::Oblique);
 
     let length_theme = LengthTheme::try_from_source(&LengthOnlySource).expect("length theme");
     assert_eq!(length_theme.spacing.medium.to_string(), "12px");
@@ -148,6 +180,8 @@ fn builds_from_a_custom_token_source() {
     let weight_theme =
         FontWeightTheme::try_from_source(&FontWeightOnlySource).expect("weight theme");
     assert_eq!(weight_theme.font.body.value(), 500);
+    let style_theme = FontStyleTheme::try_from_source(&FontStyleOnlySource).expect("style theme");
+    assert_eq!(style_theme.font.style, FontStyle::Italic);
 }
 
 #[cfg(feature = "seed")]
@@ -162,7 +196,8 @@ fn builds_material_bindings_from_resolved_themes() {
             )
             .with_length("spacing.medium", "8px".parse().expect("length"))
             .with_radius("radius.card", "6px".parse().expect("radius"))
-            .with_font_weight("font.body", "600".parse().expect("weight")),
+            .with_font_weight("font.body", "600".parse().expect("weight"))
+            .with_font_style("font.style", "normal".parse().expect("style")),
     )
     .expect("resolved");
     let theme = AppTheme::try_from_source(&resolved).expect("typed theme");
@@ -170,6 +205,7 @@ fn builds_material_bindings_from_resolved_themes() {
     assert_ne!(theme.editor.cursor, Color::new(0, 0, 255));
     assert_eq!(theme.radius.card.to_string(), "6px");
     assert_eq!(theme.font.body.value(), 600);
+    assert_eq!(theme.font.style, FontStyle::Normal);
 }
 
 #[cfg(feature = "seed")]
@@ -193,6 +229,19 @@ fn file_contract_loads_embedded_values_and_supports_seed_override() {
     assert_eq!(red.radius.card.to_string(), "12px");
     assert_eq!(blue.font.body.value(), 450);
     assert_eq!(red.editor.font_weight.value(), 450);
+    assert_eq!(blue.font.style, FontStyle::Italic);
+    assert_eq!(red.editor.font_style, FontStyle::Italic);
+}
+
+#[cfg(feature = "seed")]
+#[test]
+fn typed_build_reports_missing_font_style_tokens() {
+    let resolved = resolve_theme(&ThemeSpec::new("Empty")).expect("resolved");
+
+    assert!(matches!(
+        FontStyleTheme::try_from_source(&resolved),
+        Err(ThemeBuildError::MissingToken { path }) if path == "font.style"
+    ));
 }
 
 #[cfg(feature = "seed")]

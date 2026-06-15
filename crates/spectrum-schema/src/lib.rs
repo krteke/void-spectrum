@@ -9,9 +9,12 @@ mod spec;
 mod value;
 
 pub use error::{
-    ColorValueParseError, FontWeightValueParseError, LengthValueParseError, RadiusValueParseError,
+    ColorValueParseError, FontStyleValueParseError, FontWeightValueParseError,
+    LengthValueParseError, RadiusValueParseError,
 };
 pub use meta::ThemeMeta;
 pub use spec::ThemeSpec;
 pub use spectrum_core::ThemeMode;
-pub use value::{ColorValue, FontWeightValue, LengthValue, RadiusValue, TokenReference};
+pub use value::{
+    ColorValue, FontStyleValue, FontWeightValue, LengthValue, RadiusValue, TokenReference,
+};

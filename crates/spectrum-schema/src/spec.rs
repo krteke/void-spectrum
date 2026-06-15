@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use spectrum_core::Color;
 
-use crate::{ColorValue, FontWeightValue, LengthValue, RadiusValue, ThemeMeta};
+use crate::{ColorValue, FontStyleValue, FontWeightValue, LengthValue, RadiusValue, ThemeMeta};
 
 /// A partially specified theme configuration.
 ///
@@ -34,6 +34,9 @@ pub struct ThemeSpec {
     /// Font-weight token overrides keyed by token path.
     #[serde(default)]
     pub font_weights: BTreeMap<String, FontWeightValue>,
+    /// Font-style token overrides keyed by token path.
+    #[serde(default)]
+    pub font_styles: BTreeMap<String, FontStyleValue>,
 }
 
 impl ThemeSpec {
@@ -46,6 +49,7 @@ impl ThemeSpec {
             lengths: BTreeMap::new(),
             radii: BTreeMap::new(),
             font_weights: BTreeMap::new(),
+            font_styles: BTreeMap::new(),
         }
     }
 
@@ -81,6 +85,13 @@ impl ThemeSpec {
     #[must_use]
     pub fn with_font_weight(mut self, path: impl Into<String>, value: FontWeightValue) -> Self {
         self.font_weights.insert(path.into(), value);
+        self
+    }
+
+    /// Adds or replaces a font-style token override.
+    #[must_use]
+    pub fn with_font_style(mut self, path: impl Into<String>, value: FontStyleValue) -> Self {
+        self.font_styles.insert(path.into(), value);
         self
     }
 }

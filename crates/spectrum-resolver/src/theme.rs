@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
-use spectrum_core::{Color, FontWeight, Length, Radius};
+use spectrum_core::{Color, FontStyle, FontWeight, Length, Radius};
 use spectrum_schema::{ThemeMeta, ThemeSpec};
 
 use crate::{
-    ColorBinding, ResolveError, resolve_colors, resolve_font_weights, resolve_lengths,
-    resolve_radii,
+    ColorBinding, ResolveError, resolve_colors, resolve_font_styles, resolve_font_weights,
+    resolve_lengths, resolve_radii,
 };
 
 /// A theme whose configured color references have been fully resolved.
@@ -37,6 +37,8 @@ pub struct ResolvedTheme {
     pub radii: BTreeMap<String, Radius>,
     /// Font-weight values with token references fully expanded.
     pub font_weights: BTreeMap<String, FontWeight>,
+    /// Font-style values with token references fully expanded.
+    pub font_styles: BTreeMap<String, FontStyle>,
 }
 
 /// Resolves a theme specification into an owned theme.
@@ -48,5 +50,6 @@ pub fn resolve_theme(spec: &ThemeSpec) -> Result<ResolvedTheme, ResolveError> {
         lengths: resolve_lengths(spec)?,
         radii: resolve_radii(spec)?,
         font_weights: resolve_font_weights(spec)?,
+        font_styles: resolve_font_styles(spec)?,
     })
 }

@@ -1,7 +1,7 @@
 //! Tests for the top-level theme specification.
 
-use spectrum_core::{Color, FontWeight, Length, LengthUnit, Radius};
-use spectrum_schema::{FontWeightValue, LengthValue, RadiusValue, ThemeSpec};
+use spectrum_core::{Color, FontStyle, FontWeight, Length, LengthUnit, Radius};
+use spectrum_schema::{FontStyleValue, FontWeightValue, LengthValue, RadiusValue, ThemeSpec};
 
 #[test]
 fn constructor_has_no_seed() {
@@ -43,6 +43,17 @@ fn builder_adds_font_weight_overrides() {
         ThemeSpec::new("Midnight").with_font_weight("body", FontWeightValue::Literal(weight));
 
     assert_eq!(spec.font_weights["body"], FontWeightValue::Literal(weight));
+}
+
+#[test]
+fn builder_adds_font_style_overrides() {
+    let spec = ThemeSpec::new("Midnight")
+        .with_font_style("body", FontStyleValue::Literal(FontStyle::Normal));
+
+    assert_eq!(
+        spec.font_styles["body"],
+        FontStyleValue::Literal(FontStyle::Normal)
+    );
 }
 
 #[cfg(feature = "json")]
@@ -98,4 +109,13 @@ fn toml_decodes_font_weight_overrides() {
     let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
 
     assert_eq!(spec.font_weights["body"].to_string(), "450");
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn toml_decodes_font_style_overrides() {
+    let source = "[meta]\nname = \"Dawn\"\n\n[font_styles]\nemphasis = \"oblique\"\n";
+    let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
+
+    assert_eq!(spec.font_styles["emphasis"].to_string(), "oblique");
 }

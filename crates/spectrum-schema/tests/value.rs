@@ -1,9 +1,10 @@
 //! Tests for color token override values.
 
-use spectrum_core::{Color, FontWeight, Length, LengthUnit, Radius};
+use spectrum_core::{Color, FontStyle, FontWeight, Length, LengthUnit, Radius};
 use spectrum_schema::{
-    ColorValue, ColorValueParseError, FontWeightValue, FontWeightValueParseError, LengthValue,
-    LengthValueParseError, RadiusValue, RadiusValueParseError, ThemeSpec,
+    ColorValue, ColorValueParseError, FontStyleValue, FontStyleValueParseError, FontWeightValue,
+    FontWeightValueParseError, LengthValue, LengthValueParseError, RadiusValue,
+    RadiusValueParseError, ThemeSpec,
 };
 
 #[test]
@@ -111,6 +112,33 @@ fn rejects_invalid_font_weight_values() {
 }
 
 #[test]
+fn parses_font_style_literals_and_references() {
+    assert_eq!(
+        "italic".parse(),
+        Ok(FontStyleValue::Literal(FontStyle::Italic))
+    );
+
+    let reference = "{font.body}"
+        .parse::<FontStyleValue>()
+        .expect("valid reference");
+    assert_eq!(reference.to_string(), "{font.body}");
+}
+
+#[test]
+fn rejects_invalid_font_style_values() {
+    for input in ["Italic", "slanted"] {
+        assert!(matches!(
+            input.parse::<FontStyleValue>(),
+            Err(FontStyleValueParseError::InvalidFontStyle(_))
+        ));
+    }
+    assert_eq!(
+        "{font..body}".parse::<FontStyleValue>(),
+        Err(FontStyleValueParseError::InvalidReference)
+    );
+}
+
+#[test]
 fn builder_adds_color_overrides() {
     let spec = ThemeSpec::new("Midnight").with_color(
         "text.primary",
@@ -161,6 +189,16 @@ fn json_decodes_font_weight_values() {
 
     assert_eq!(spec.font_weights["body"].to_string(), "400");
     assert_eq!(spec.font_weights["strong"].to_string(), "{body}");
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn json_decodes_font_style_values() {
+    let source = r#"{"meta":{"name":"Dawn"},"font_styles":{"body":"normal","emphasis":"{body}"}}"#;
+    let spec: ThemeSpec = serde_json::from_str(source).expect("valid specification");
+
+    assert_eq!(spec.font_styles["body"].to_string(), "normal");
+    assert_eq!(spec.font_styles["emphasis"].to_string(), "{body}");
 }
 
 #[cfg(feature = "toml")]
