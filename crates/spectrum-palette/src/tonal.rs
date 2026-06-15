@@ -1,4 +1,4 @@
-use material_colors::{color::Argb, hct::Hct, palette::TonalPalette as MaterialTonalPalette};
+use material_colors::{color::Argb, palette::TonalPalette as MaterialTonalPalette};
 use spectrum_core::Color;
 
 /// A Material HCT tonal palette derived from a seed color.
@@ -14,7 +14,7 @@ impl TonalPalette {
     #[must_use]
     pub fn from_seed(seed: Color) -> Self {
         let argb = argb_from_color(seed);
-        let hct: Hct = argb.into();
+        let hct = argb.into();
         Self {
             inner: MaterialTonalPalette::from_hct(hct),
         }

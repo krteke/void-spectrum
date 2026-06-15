@@ -1,0 +1,11 @@
+seed = "#0000ff"
+
+[meta]
+name = "File Theme"
+mode = "light"
+
+[colors]
+"editor.cursor" = "{material.primary}"
+"editor.selection.background" = "#102030"
+"editor.selection.foreground" = "{editor.selection.background}"
+"overlay.scrim" = "#10203080"

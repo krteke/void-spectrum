@@ -1,0 +1,6 @@
+[meta]
+name = "Invalid"
+unexpected = true
+
+[colors]
+"editor.cursor" = "#102030"

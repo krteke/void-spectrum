@@ -31,5 +31,8 @@ spectrum-resolver.workspace = true
 spectrum-schema.workspace = true
 thiserror = { workspace = true, optional = true }
 
+[dev-dependencies]
+trybuild.workspace = true
+
 [lints]
 workspace = true

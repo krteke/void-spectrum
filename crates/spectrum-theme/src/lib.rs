@@ -7,22 +7,40 @@ pub use spectrum_core::{
 };
 
 #[cfg(feature = "macros")]
-pub use spectrum_macros::define_theme_tokens;
+pub use spectrum_macros::{define_theme_tokens, include_theme_tokens};
+
+/// Errors produced while constructing a generated typed theme.
+#[cfg(feature = "macros")]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ThemeBuildError {
+    /// The generated contract requires a token absent from the source.
+    #[error("missing color token '{path}'")]
+    MissingToken {
+        /// Missing token path.
+        path: String,
+    },
+    /// A Material binding was loaded without a Seed.
+    #[error("Material color token '{path}' requires a Seed")]
+    MissingSeed {
+        /// Material-bound token path.
+        path: String,
+    },
+    /// A Material binding was loaded without the `seed` feature.
+    #[error("Material color token '{path}' requires the 'seed' feature")]
+    SeedFeatureDisabled {
+        /// Material-bound token path.
+        path: String,
+    },
+}
 
 #[cfg(feature = "macros")]
 #[doc(hidden)]
 pub mod __private {
-    use spectrum_core::Color;
-    #[cfg(feature = "seed")]
-    use spectrum_resolver::{ColorBinding, ResolvedTheme};
+    use super::{Color, ThemeBuildError};
 
-    #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-    pub enum BuildError {
-        #[error("missing color token '{path}'")]
-        MissingToken { path: String },
-        #[error("Material color token '{path}' requires a Seed")]
-        MissingSeed { path: String },
-    }
+    pub use spectrum_palette::MaterialColor;
+    pub use spectrum_resolver::{ColorBinding, ResolvedTheme};
+    pub use spectrum_schema::{ThemeMeta, ThemeMode};
 
     pub trait TokenSource {
         type Error;
@@ -39,27 +57,75 @@ pub mod __private {
         }
     }
 
-    #[cfg(feature = "seed")]
+    pub struct SeededTheme<'a> {
+        theme: &'a ResolvedTheme,
+        seed: Color,
+    }
+
+    impl<'a> SeededTheme<'a> {
+        #[must_use]
+        pub const fn new(theme: &'a ResolvedTheme, seed: Color) -> Self {
+            Self { theme, seed }
+        }
+    }
+
     impl TokenSource for ResolvedTheme {
-        type Error = BuildError;
+        type Error = ThemeBuildError;
 
         fn color(&self, path: &str) -> Result<Color, Self::Error> {
-            let binding =
-                self.colors
-                    .get(path)
-                    .copied()
-                    .ok_or_else(|| BuildError::MissingToken {
-                        path: path.to_owned(),
-                    })?;
-            match binding {
-                ColorBinding::Color(color) => Ok(color),
-                ColorBinding::Material(role) => {
-                    let seed = self.seed.ok_or_else(|| BuildError::MissingSeed {
-                        path: path.to_owned(),
-                    })?;
-                    Ok(spectrum_palette::material_colors(seed, self.meta.mode).resolve(role))
-                }
-            }
+            resolve_color(self, self.seed, path)
         }
+    }
+
+    impl TokenSource for SeededTheme<'_> {
+        type Error = ThemeBuildError;
+
+        fn color(&self, path: &str) -> Result<Color, Self::Error> {
+            resolve_color(self.theme, Some(self.seed), path)
+        }
+    }
+
+    fn resolve_color(
+        theme: &ResolvedTheme,
+        seed: Option<Color>,
+        path: &str,
+    ) -> Result<Color, ThemeBuildError> {
+        let binding =
+            theme
+                .colors
+                .get(path)
+                .copied()
+                .ok_or_else(|| ThemeBuildError::MissingToken {
+                    path: path.to_owned(),
+                })?;
+        match binding {
+            ColorBinding::Color(color) => Ok(color),
+            ColorBinding::Material(role) => resolve_material(seed, theme.meta.mode, role, path),
+        }
+    }
+
+    #[cfg(feature = "seed")]
+    fn resolve_material(
+        seed: Option<Color>,
+        mode: ThemeMode,
+        role: MaterialColor,
+        path: &str,
+    ) -> Result<Color, ThemeBuildError> {
+        let seed = seed.ok_or_else(|| ThemeBuildError::MissingSeed {
+            path: path.to_owned(),
+        })?;
+        Ok(spectrum_palette::material_colors(seed, mode).resolve(role))
+    }
+
+    #[cfg(not(feature = "seed"))]
+    fn resolve_material(
+        _: Option<Color>,
+        _: ThemeMode,
+        _: MaterialColor,
+        path: &str,
+    ) -> Result<Color, ThemeBuildError> {
+        Err(ThemeBuildError::SeedFeatureDisabled {
+            path: path.to_owned(),
+        })
     }
 }

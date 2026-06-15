@@ -1,0 +1,5 @@
+[meta]
+name = "Unresolved"
+
+[colors]
+"editor.cursor" = "{missing.token}"

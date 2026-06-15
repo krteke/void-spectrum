@@ -104,6 +104,62 @@ pub enum MaterialColor {
 }
 
 impl MaterialColor {
+    /// Returns the stable configuration name for this Material role.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Primary => "primary",
+            Self::OnPrimary => "on_primary",
+            Self::PrimaryContainer => "primary_container",
+            Self::OnPrimaryContainer => "on_primary_container",
+            Self::Secondary => "secondary",
+            Self::OnSecondary => "on_secondary",
+            Self::SecondaryContainer => "secondary_container",
+            Self::OnSecondaryContainer => "on_secondary_container",
+            Self::Tertiary => "tertiary",
+            Self::OnTertiary => "on_tertiary",
+            Self::TertiaryContainer => "tertiary_container",
+            Self::OnTertiaryContainer => "on_tertiary_container",
+            Self::Background => "background",
+            Self::OnBackground => "on_background",
+            Self::Surface => "surface",
+            Self::OnSurface => "on_surface",
+            Self::SurfaceDim => "surface_dim",
+            Self::SurfaceBright => "surface_bright",
+            Self::SurfaceContainerLowest => "surface_container_lowest",
+            Self::SurfaceContainerLow => "surface_container_low",
+            Self::SurfaceContainer => "surface_container",
+            Self::SurfaceContainerHigh => "surface_container_high",
+            Self::SurfaceContainerHighest => "surface_container_highest",
+            Self::SurfaceVariant => "surface_variant",
+            Self::OnSurfaceVariant => "on_surface_variant",
+            Self::InverseSurface => "inverse_surface",
+            Self::InverseOnSurface => "inverse_on_surface",
+            Self::Outline => "outline",
+            Self::OutlineVariant => "outline_variant",
+            Self::Shadow => "shadow",
+            Self::Scrim => "scrim",
+            Self::SurfaceTint => "surface_tint",
+            Self::InversePrimary => "inverse_primary",
+            Self::PrimaryFixed => "primary_fixed",
+            Self::PrimaryFixedDim => "primary_fixed_dim",
+            Self::OnPrimaryFixed => "on_primary_fixed",
+            Self::OnPrimaryFixedVariant => "on_primary_fixed_variant",
+            Self::SecondaryFixed => "secondary_fixed",
+            Self::SecondaryFixedDim => "secondary_fixed_dim",
+            Self::OnSecondaryFixed => "on_secondary_fixed",
+            Self::OnSecondaryFixedVariant => "on_secondary_fixed_variant",
+            Self::TertiaryFixed => "tertiary_fixed",
+            Self::TertiaryFixedDim => "tertiary_fixed_dim",
+            Self::OnTertiaryFixed => "on_tertiary_fixed",
+            Self::OnTertiaryFixedVariant => "on_tertiary_fixed_variant",
+            Self::Error => "error",
+            Self::OnError => "on_error",
+            Self::ErrorContainer => "error_container",
+            Self::OnErrorContainer => "on_error_container",
+        }
+    }
+
     /// Parses the segment after the `material.` namespace prefix.
     #[must_use]
     pub fn from_name(name: &str) -> Option<Self> {

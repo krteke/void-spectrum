@@ -60,6 +60,66 @@ fn material_roles_parse_and_select_generated_colors() {
 }
 
 #[test]
+fn every_material_role_name_round_trips() {
+    let colors = material_colors(Color::new(0, 0, 255), ThemeMode::Light);
+
+    for role in [
+        MaterialColor::Primary,
+        MaterialColor::OnPrimary,
+        MaterialColor::PrimaryContainer,
+        MaterialColor::OnPrimaryContainer,
+        MaterialColor::Secondary,
+        MaterialColor::OnSecondary,
+        MaterialColor::SecondaryContainer,
+        MaterialColor::OnSecondaryContainer,
+        MaterialColor::Tertiary,
+        MaterialColor::OnTertiary,
+        MaterialColor::TertiaryContainer,
+        MaterialColor::OnTertiaryContainer,
+        MaterialColor::Background,
+        MaterialColor::OnBackground,
+        MaterialColor::Surface,
+        MaterialColor::OnSurface,
+        MaterialColor::SurfaceDim,
+        MaterialColor::SurfaceBright,
+        MaterialColor::SurfaceContainerLowest,
+        MaterialColor::SurfaceContainerLow,
+        MaterialColor::SurfaceContainer,
+        MaterialColor::SurfaceContainerHigh,
+        MaterialColor::SurfaceContainerHighest,
+        MaterialColor::SurfaceVariant,
+        MaterialColor::OnSurfaceVariant,
+        MaterialColor::InverseSurface,
+        MaterialColor::InverseOnSurface,
+        MaterialColor::Outline,
+        MaterialColor::OutlineVariant,
+        MaterialColor::Shadow,
+        MaterialColor::Scrim,
+        MaterialColor::SurfaceTint,
+        MaterialColor::InversePrimary,
+        MaterialColor::PrimaryFixed,
+        MaterialColor::PrimaryFixedDim,
+        MaterialColor::OnPrimaryFixed,
+        MaterialColor::OnPrimaryFixedVariant,
+        MaterialColor::SecondaryFixed,
+        MaterialColor::SecondaryFixedDim,
+        MaterialColor::OnSecondaryFixed,
+        MaterialColor::OnSecondaryFixedVariant,
+        MaterialColor::TertiaryFixed,
+        MaterialColor::TertiaryFixedDim,
+        MaterialColor::OnTertiaryFixed,
+        MaterialColor::OnTertiaryFixedVariant,
+        MaterialColor::Error,
+        MaterialColor::OnError,
+        MaterialColor::ErrorContainer,
+        MaterialColor::OnErrorContainer,
+    ] {
+        assert_eq!(MaterialColor::from_name(role.name()), Some(role));
+        let _ = colors.resolve(role);
+    }
+}
+
+#[test]
 fn maps_secondary_tertiary_and_container_roles() {
     let seed = Argb::new(255, 0, 0, 255);
     let light = material_colors(Color::new(0, 0, 255), ThemeMode::Light);
