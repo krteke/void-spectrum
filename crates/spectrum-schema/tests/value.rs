@@ -1,8 +1,9 @@
 //! Tests for color token override values.
 
-use spectrum_core::{Color, Length, LengthUnit};
+use spectrum_core::{Color, Length, LengthUnit, Radius};
 use spectrum_schema::{
-    ColorValue, ColorValueParseError, LengthValue, LengthValueParseError, ThemeSpec,
+    ColorValue, ColorValueParseError, LengthValue, LengthValueParseError, RadiusValue,
+    RadiusValueParseError, ThemeSpec,
 };
 
 #[test]
@@ -56,6 +57,31 @@ fn rejects_invalid_length_values() {
 }
 
 #[test]
+fn parses_radius_literals_and_references() {
+    let radius = Radius::new(Length::new(8.0, LengthUnit::Px).expect("finite")).expect("radius");
+    assert_eq!("8px".parse(), Ok(RadiusValue::Literal(radius)));
+
+    let reference = "{radius.card}"
+        .parse::<RadiusValue>()
+        .expect("valid reference");
+    assert_eq!(reference.to_string(), "{radius.card}");
+}
+
+#[test]
+fn rejects_invalid_radius_values() {
+    for input in ["-1px", "8pt"] {
+        assert!(matches!(
+            input.parse::<RadiusValue>(),
+            Err(RadiusValueParseError::InvalidRadius(_))
+        ));
+    }
+    assert_eq!(
+        "{radius..card}".parse::<RadiusValue>(),
+        Err(RadiusValueParseError::InvalidReference)
+    );
+}
+
+#[test]
 fn builder_adds_color_overrides() {
     let spec = ThemeSpec::new("Midnight").with_color(
         "text.primary",
@@ -86,6 +112,16 @@ fn json_decodes_length_values() {
         spec.lengths["spacing.medium"].to_string(),
         "{spacing.small}"
     );
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn json_decodes_radius_values() {
+    let source = r#"{"meta":{"name":"Dawn"},"radii":{"card":"8px","button":"{card}"}}"#;
+    let spec: ThemeSpec = serde_json::from_str(source).expect("valid specification");
+
+    assert_eq!(spec.radii["card"].to_string(), "8px");
+    assert_eq!(spec.radii["button"].to_string(), "{card}");
 }
 
 #[cfg(feature = "toml")]

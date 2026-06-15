@@ -15,6 +15,8 @@ use crate::{Length, LengthParseError};
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Radius(Length);
 
+impl Eq for Radius {}
+
 impl Radius {
     /// Creates a radius from a validated length.
     pub fn new(length: Length) -> Result<Self, RadiusParseError> {

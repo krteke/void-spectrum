@@ -1,7 +1,7 @@
 //! Tests for the top-level theme specification.
 
-use spectrum_core::{Color, Length, LengthUnit};
-use spectrum_schema::{LengthValue, ThemeSpec};
+use spectrum_core::{Color, Length, LengthUnit, Radius};
+use spectrum_schema::{LengthValue, RadiusValue, ThemeSpec};
 
 #[test]
 fn constructor_has_no_seed() {
@@ -26,6 +26,14 @@ fn builder_adds_length_overrides() {
         ThemeSpec::new("Midnight").with_length("spacing.medium", LengthValue::Literal(length));
 
     assert_eq!(spec.lengths["spacing.medium"], LengthValue::Literal(length));
+}
+
+#[test]
+fn builder_adds_radius_overrides() {
+    let radius = Radius::new(Length::new(8.0, LengthUnit::Px).expect("finite")).expect("radius");
+    let spec = ThemeSpec::new("Midnight").with_radius("card", RadiusValue::Literal(radius));
+
+    assert_eq!(spec.radii["card"], RadiusValue::Literal(radius));
 }
 
 #[cfg(feature = "json")]
@@ -63,4 +71,13 @@ fn toml_decodes_length_overrides() {
     let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
 
     assert_eq!(spec.lengths["spacing.medium"].to_string(), "1.5rem");
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn toml_decodes_radius_overrides() {
+    let source = "[meta]\nname = \"Dawn\"\n\n[radii]\ncard = \"0.5rem\"\n";
+    let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
+
+    assert_eq!(spec.radii["card"].to_string(), "0.5rem");
 }

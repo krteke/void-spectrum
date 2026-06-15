@@ -1,5 +1,5 @@
 use core::fmt;
-use spectrum_core::{ColorParseError, LengthParseError};
+use spectrum_core::{ColorParseError, LengthParseError, RadiusParseError};
 
 /// Describes why a color value could not be parsed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,3 +40,23 @@ impl fmt::Display for LengthValueParseError {
 }
 
 impl std::error::Error for LengthValueParseError {}
+
+/// Describes why a radius token value could not be parsed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RadiusValueParseError {
+    /// The direct radius is invalid.
+    InvalidRadius(RadiusParseError),
+    /// The token reference syntax is invalid.
+    InvalidReference,
+}
+
+impl fmt::Display for RadiusValueParseError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidRadius(error) => error.fmt(formatter),
+            Self::InvalidReference => formatter.write_str("invalid radius token reference"),
+        }
+    }
+}
+
+impl std::error::Error for RadiusValueParseError {}

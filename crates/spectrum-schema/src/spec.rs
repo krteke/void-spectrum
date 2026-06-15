@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use spectrum_core::Color;
 
-use crate::{ColorValue, LengthValue, ThemeMeta};
+use crate::{ColorValue, LengthValue, RadiusValue, ThemeMeta};
 
 /// A partially specified theme configuration.
 ///
@@ -28,6 +28,9 @@ pub struct ThemeSpec {
     /// Length token overrides keyed by token path.
     #[serde(default)]
     pub lengths: BTreeMap<String, LengthValue>,
+    /// Radius token overrides keyed by token path.
+    #[serde(default)]
+    pub radii: BTreeMap<String, RadiusValue>,
 }
 
 impl ThemeSpec {
@@ -38,6 +41,7 @@ impl ThemeSpec {
             seed: None,
             colors: BTreeMap::new(),
             lengths: BTreeMap::new(),
+            radii: BTreeMap::new(),
         }
     }
 
@@ -59,6 +63,13 @@ impl ThemeSpec {
     #[must_use]
     pub fn with_length(mut self, path: impl Into<String>, value: LengthValue) -> Self {
         self.lengths.insert(path.into(), value);
+        self
+    }
+
+    /// Adds or replaces a radius token override.
+    #[must_use]
+    pub fn with_radius(mut self, path: impl Into<String>, value: RadiusValue) -> Self {
+        self.radii.insert(path.into(), value);
         self
     }
 }

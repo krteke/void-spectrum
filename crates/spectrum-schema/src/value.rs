@@ -1,9 +1,9 @@
 use core::fmt;
 use core::str::FromStr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use spectrum_core::{Color, Length};
+use spectrum_core::{Color, Length, Radius};
 
-use crate::{ColorValueParseError, LengthValueParseError};
+use crate::{ColorValueParseError, LengthValueParseError, RadiusValueParseError};
 
 /// A validated dot-separated token reference.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -41,23 +41,6 @@ pub enum ColorValue {
     Reference(TokenReference),
 }
 
-impl FromStr for ColorValue {
-    type Err = ColorValueParseError;
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        if let Some(path) = input
-            .strip_prefix('{')
-            .and_then(|value| value.strip_suffix('}'))
-        {
-            return TokenReference::new(path).map(Self::Reference);
-        }
-        input
-            .parse()
-            .map(Self::Literal)
-            .map_err(ColorValueParseError::InvalidColor)
-    }
-}
-
 /// A direct length or a reference to another length token.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LengthValue {
@@ -69,23 +52,31 @@ pub enum LengthValue {
 
 impl Eq for LengthValue {}
 
-impl FromStr for LengthValue {
-    type Err = LengthValueParseError;
+/// A direct radius or a reference to another radius token.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RadiusValue {
+    /// A concrete radius value.
+    Literal(Radius),
+    /// A token reference resolved later.
+    Reference(TokenReference),
+}
 
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        if let Some(path) = input
-            .strip_prefix('{')
-            .and_then(|value| value.strip_suffix('}'))
-        {
-            return TokenReference::new(path)
-                .map(Self::Reference)
-                .map_err(|_| LengthValueParseError::InvalidReference);
+macro_rules! impl_from_str {
+    ($name:ident, $err:ty, $err_type:ident) => {
+        impl FromStr for $name {
+            type Err = $err;
+
+            fn from_str(input: &str) -> Result<Self, Self::Err> {
+                if let Some(value) = input.strip_prefix('{').and_then(|v| v.strip_suffix('}')) {
+                    return TokenReference::new(value)
+                        .map(Self::Reference)
+                        .map_err(|_| <$err>::InvalidReference);
+                }
+
+                input.parse().map(Self::Literal).map_err(<$err>::$err_type)
+            }
         }
-        input
-            .parse()
-            .map(Self::Literal)
-            .map_err(LengthValueParseError::InvalidLength)
-    }
+    };
 }
 
 macro_rules! impl_string_value {
@@ -123,3 +114,7 @@ macro_rules! impl_string_value {
 
 impl_string_value!(ColorValue);
 impl_string_value!(LengthValue);
+impl_string_value!(RadiusValue);
+impl_from_str!(ColorValue, ColorValueParseError, InvalidColor);
+impl_from_str!(LengthValue, LengthValueParseError, InvalidLength);
+impl_from_str!(RadiusValue, RadiusValueParseError, InvalidRadius);
