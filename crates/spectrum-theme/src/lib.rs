@@ -14,7 +14,7 @@ pub use spectrum_macros::{define_theme_tokens, include_theme_tokens};
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ThemeBuildError {
     /// The generated contract requires a token absent from the source.
-    #[error("missing color token '{path}'")]
+    #[error("missing token '{path}'")]
     MissingToken {
         /// Missing token path.
         path: String,
@@ -36,7 +36,7 @@ pub enum ThemeBuildError {
 #[cfg(feature = "macros")]
 #[doc(hidden)]
 pub mod __private {
-    use super::{Color, ThemeBuildError};
+    use super::{Color, Length, ThemeBuildError};
 
     pub use spectrum_palette::MaterialColor;
     pub use spectrum_resolver::{ColorBinding, ResolvedTheme};
@@ -44,16 +44,29 @@ pub mod __private {
 
     pub trait TokenSource {
         type Error;
+    }
+
+    pub trait ColorSource: TokenSource {
         fn color(&self, path: &str) -> Result<Color, Self::Error>;
+    }
+
+    pub trait LengthSource: TokenSource {
+        fn length(&self, path: &str) -> Result<Length, Self::Error>;
     }
 
     pub trait TokenValue<S: TokenSource>: Sized {
         fn read(source: &S, path: &str) -> Result<Self, S::Error>;
     }
 
-    impl<S: TokenSource> TokenValue<S> for Color {
+    impl<S: ColorSource> TokenValue<S> for Color {
         fn read(source: &S, path: &str) -> Result<Self, S::Error> {
             source.color(path)
+        }
+    }
+
+    impl<S: LengthSource> TokenValue<S> for Length {
+        fn read(source: &S, path: &str) -> Result<Self, S::Error> {
+            source.length(path)
         }
     }
 
@@ -71,18 +84,44 @@ pub mod __private {
 
     impl TokenSource for ResolvedTheme {
         type Error = ThemeBuildError;
+    }
 
+    impl ColorSource for ResolvedTheme {
         fn color(&self, path: &str) -> Result<Color, Self::Error> {
             resolve_color(self, self.seed, path)
         }
     }
 
+    impl LengthSource for ResolvedTheme {
+        fn length(&self, path: &str) -> Result<Length, Self::Error> {
+            resolve_length(self, path)
+        }
+    }
+
     impl TokenSource for SeededTheme<'_> {
         type Error = ThemeBuildError;
+    }
 
+    impl ColorSource for SeededTheme<'_> {
         fn color(&self, path: &str) -> Result<Color, Self::Error> {
             resolve_color(self.theme, Some(self.seed), path)
         }
+    }
+
+    impl LengthSource for SeededTheme<'_> {
+        fn length(&self, path: &str) -> Result<Length, Self::Error> {
+            resolve_length(self.theme, path)
+        }
+    }
+
+    fn resolve_length(theme: &ResolvedTheme, path: &str) -> Result<Length, ThemeBuildError> {
+        theme
+            .lengths
+            .get(path)
+            .copied()
+            .ok_or_else(|| ThemeBuildError::MissingToken {
+                path: path.to_owned(),
+            })
     }
 
     fn resolve_color(

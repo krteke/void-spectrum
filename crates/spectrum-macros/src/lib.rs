@@ -167,34 +167,48 @@ fn include_schema(mut schema: ThemeSchema, path: &LitStr) -> Result<TokenStream2
         toml::from_str(&source).map_err(|error| syn::Error::new(path.span(), error.to_string()))?;
     let resolved =
         resolve_theme(&spec).map_err(|error| syn::Error::new(path.span(), error.to_string()))?;
-    let paths = resolved
+    let facade = facade_path();
+    let color: Type = syn::parse2(quote!(#facade::Color))?;
+    let length: Type = syn::parse2(quote!(#facade::Length))?;
+    let entries = resolved
         .colors
         .keys()
-        .map(|path| path.split('.').map(str::to_owned).collect())
-        .collect::<Vec<Vec<String>>>();
-    let facade = facade_path();
-    let ty = syn::parse2(quote!(#facade::Color))?;
-    schema.2 = file_tokens(&paths, &ty, path.span())?;
+        .map(|path| (token_segments(path), color.clone()))
+        .chain(
+            resolved
+                .lengths
+                .keys()
+                .map(|path| (token_segments(path), length.clone())),
+        )
+        .collect::<Vec<_>>();
+    schema.2 = file_tokens(&entries, path.span())?;
     Ok(expand_schema(schema, Some(resolved)))
 }
 
-fn file_tokens(paths: &[Vec<String>], ty: &Type, span: Span) -> Result<Vec<Token>> {
-    let mut grouped = BTreeMap::<String, Vec<Vec<String>>>::new();
-    for path in paths {
+fn token_segments(path: &str) -> Vec<String> {
+    path.split('.').map(str::to_owned).collect()
+}
+
+fn file_tokens(paths: &[(Vec<String>, Type)], span: Span) -> Result<Vec<Token>> {
+    let mut grouped = BTreeMap::<String, Vec<(Vec<String>, Type)>>::new();
+    for (path, ty) in paths {
         let (head, tail) = path.split_first().expect("split path has a segment");
-        grouped.entry(head.clone()).or_default().push(tail.to_vec());
+        grouped
+            .entry(head.clone())
+            .or_default()
+            .push((tail.to_vec(), ty.clone()));
     }
     grouped
         .into_iter()
         .map(|(name, children)| {
             let name = syn::parse_str::<Ident>(&name)
                 .map_err(|_| syn::Error::new(span, "invalid Rust token path"))?;
-            if children.len() == 1 && children[0].is_empty() {
-                Ok(Token::Value(name, Box::new(ty.clone())))
-            } else if children.iter().any(Vec::is_empty) {
+            if children.len() == 1 && children[0].0.is_empty() {
+                Ok(Token::Value(name, Box::new(children[0].1.clone())))
+            } else if children.iter().any(|(path, _)| path.is_empty()) {
                 Err(syn::Error::new(span, "token path is both value and group"))
             } else {
-                Ok(Token::Group(name, file_tokens(&children, ty, span)?))
+                Ok(Token::Group(name, file_tokens(&children, span)?))
             }
         })
         .collect()
