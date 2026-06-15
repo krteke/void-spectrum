@@ -5,8 +5,10 @@
 
 mod color;
 mod error;
+mod length;
 mod theme;
 
 pub use color::{ColorBinding, resolve_colors};
 pub use error::ResolveError;
+pub use length::resolve_lengths;
 pub use theme::{ResolvedTheme, resolve_theme};

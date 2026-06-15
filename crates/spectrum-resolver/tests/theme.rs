@@ -1,16 +1,18 @@
 //! Tests for the resolved theme output.
 
-use spectrum_core::Color;
+use spectrum_core::{Color, Length, LengthUnit};
 use spectrum_palette::MaterialColor;
 use spectrum_resolver::{ColorBinding, ResolveError, resolve_theme};
-use spectrum_schema::{ThemeMode, ThemeSpec};
+use spectrum_schema::{LengthValue, ThemeMode, ThemeSpec};
 
 #[test]
 fn resolves_an_owned_theme_output() {
+    let gap = Length::new(8.0, LengthUnit::Px).expect("finite");
     let mut spec = ThemeSpec::new("Demo")
         .with_seed(Color::new(10, 20, 30))
         .with_color("accent", "#5078c8".parse().expect("literal"))
-        .with_color("focus", "{accent}".parse().expect("reference"));
+        .with_color("focus", "{accent}".parse().expect("reference"))
+        .with_length("spacing.medium", LengthValue::Literal(gap));
     spec.meta.mode = ThemeMode::Light;
 
     let theme = resolve_theme(&spec).expect("resolved theme");
@@ -22,6 +24,7 @@ fn resolves_an_owned_theme_output() {
         theme.colors["focus"],
         ColorBinding::Color(Color::new(80, 120, 200))
     );
+    assert_eq!(theme.lengths["spacing.medium"], gap);
 }
 
 #[test]

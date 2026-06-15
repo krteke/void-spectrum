@@ -9,3 +9,6 @@ mode = "light"
 "editor.selection.background" = "#102030"
 "editor.selection.foreground" = "{editor.selection.background}"
 "overlay.scrim" = "#10203080"
+
+[lengths]
+"spacing.medium" = "8px"

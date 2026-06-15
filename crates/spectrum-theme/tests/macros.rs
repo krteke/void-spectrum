@@ -75,6 +75,10 @@ fn file_contract_loads_embedded_values_and_supports_seed_override() {
     );
     assert_eq!(red.editor.selection.background, Color::new(16, 32, 48));
     assert_eq!(red.overlay.scrim, Color::new_rgba(16, 32, 48, 128));
+    assert_eq!(
+        FileTheme::__embedded_theme().lengths["spacing.medium"].to_string(),
+        "8px"
+    );
 }
 
 #[cfg(feature = "seed")]

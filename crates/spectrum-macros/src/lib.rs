@@ -216,6 +216,15 @@ fn resolved_theme_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStr
         let binding = binding_expr(*binding, facade);
         quote!((#path.to_owned(), #binding))
     });
+    let lengths = theme.lengths.iter().map(|(path, length)| {
+        let path = LitStr::new(path, Span::call_site());
+        let length = length.to_string();
+        quote!((
+            #path.to_owned(),
+            #length.parse::<#facade::Length>()
+                .expect("embedded length was validated at compile time")
+        ))
+    });
 
     quote! {
         #facade::__private::ResolvedTheme {
@@ -228,6 +237,7 @@ fn resolved_theme_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStr
             },
             seed: #seed,
             colors: ::std::collections::BTreeMap::from([#(#colors),*]),
+            lengths: ::std::collections::BTreeMap::from([#(#lengths),*]),
         }
     }
 }

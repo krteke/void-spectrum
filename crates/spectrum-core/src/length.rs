@@ -41,6 +41,8 @@ pub struct Length {
     unit: LengthUnit,
 }
 
+impl Eq for Length {}
+
 impl Length {
     /// Creates a length, rejecting non-finite values.
     pub fn new(value: f32, unit: LengthUnit) -> Result<Self, LengthParseError> {
