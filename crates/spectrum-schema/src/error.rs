@@ -1,5 +1,5 @@
 use core::fmt;
-use spectrum_core::{ColorParseError, LengthParseError, RadiusParseError};
+use spectrum_core::{ColorParseError, FontWeightParseError, LengthParseError, RadiusParseError};
 
 /// Describes why a color value could not be parsed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,3 +60,23 @@ impl fmt::Display for RadiusValueParseError {
 }
 
 impl std::error::Error for RadiusValueParseError {}
+
+/// Describes why a font-weight token value could not be parsed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FontWeightValueParseError {
+    /// The direct font weight is invalid.
+    InvalidFontWeight(FontWeightParseError),
+    /// The token reference syntax is invalid.
+    InvalidReference,
+}
+
+impl fmt::Display for FontWeightValueParseError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidFontWeight(error) => error.fmt(formatter),
+            Self::InvalidReference => formatter.write_str("invalid font-weight token reference"),
+        }
+    }
+}
+
+impl std::error::Error for FontWeightValueParseError {}

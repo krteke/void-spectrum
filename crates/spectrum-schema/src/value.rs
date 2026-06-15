@@ -1,9 +1,11 @@
 use core::fmt;
 use core::str::FromStr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use spectrum_core::{Color, Length, Radius};
+use spectrum_core::{Color, FontWeight, Length, Radius};
 
-use crate::{ColorValueParseError, LengthValueParseError, RadiusValueParseError};
+use crate::{
+    ColorValueParseError, FontWeightValueParseError, LengthValueParseError, RadiusValueParseError,
+};
 
 /// A validated dot-separated token reference.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -61,6 +63,15 @@ pub enum RadiusValue {
     Reference(TokenReference),
 }
 
+/// A direct font weight or a reference to another font-weight token.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FontWeightValue {
+    /// A concrete font weight.
+    Literal(FontWeight),
+    /// A token reference resolved later.
+    Reference(TokenReference),
+}
+
 macro_rules! impl_from_str {
     ($name:ident, $err:ty, $err_type:ident) => {
         impl FromStr for $name {
@@ -113,8 +124,14 @@ macro_rules! impl_string_value {
 }
 
 impl_string_value!(ColorValue);
+impl_string_value!(FontWeightValue);
 impl_string_value!(LengthValue);
 impl_string_value!(RadiusValue);
 impl_from_str!(ColorValue, ColorValueParseError, InvalidColor);
+impl_from_str!(
+    FontWeightValue,
+    FontWeightValueParseError,
+    InvalidFontWeight
+);
 impl_from_str!(LengthValue, LengthValueParseError, InvalidLength);
 impl_from_str!(RadiusValue, RadiusValueParseError, InvalidRadius);

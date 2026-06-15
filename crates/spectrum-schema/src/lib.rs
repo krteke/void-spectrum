@@ -8,8 +8,10 @@ mod meta;
 mod spec;
 mod value;
 
-pub use error::{ColorValueParseError, LengthValueParseError, RadiusValueParseError};
+pub use error::{
+    ColorValueParseError, FontWeightValueParseError, LengthValueParseError, RadiusValueParseError,
+};
 pub use meta::ThemeMeta;
 pub use spec::ThemeSpec;
 pub use spectrum_core::ThemeMode;
-pub use value::{ColorValue, LengthValue, RadiusValue, TokenReference};
+pub use value::{ColorValue, FontWeightValue, LengthValue, RadiusValue, TokenReference};

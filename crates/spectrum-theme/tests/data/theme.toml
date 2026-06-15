@@ -16,3 +16,7 @@ mode = "light"
 
 [radii]
 "radius.card" = "12px"
+
+[font_weights]
+"font.body" = "450"
+"editor.font_weight" = "{font.body}"

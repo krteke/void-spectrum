@@ -1,9 +1,9 @@
 //! Tests for color token override values.
 
-use spectrum_core::{Color, Length, LengthUnit, Radius};
+use spectrum_core::{Color, FontWeight, Length, LengthUnit, Radius};
 use spectrum_schema::{
-    ColorValue, ColorValueParseError, LengthValue, LengthValueParseError, RadiusValue,
-    RadiusValueParseError, ThemeSpec,
+    ColorValue, ColorValueParseError, FontWeightValue, FontWeightValueParseError, LengthValue,
+    LengthValueParseError, RadiusValue, RadiusValueParseError, ThemeSpec,
 };
 
 #[test]
@@ -82,6 +82,35 @@ fn rejects_invalid_radius_values() {
 }
 
 #[test]
+fn parses_font_weight_literals_and_references() {
+    assert_eq!(
+        "650".parse(),
+        Ok(FontWeightValue::Literal(
+            FontWeight::new(650).expect("weight")
+        ))
+    );
+
+    let reference = "{font.body}"
+        .parse::<FontWeightValue>()
+        .expect("valid reference");
+    assert_eq!(reference.to_string(), "{font.body}");
+}
+
+#[test]
+fn rejects_invalid_font_weight_values() {
+    for input in ["bold", "0", "1001"] {
+        assert!(matches!(
+            input.parse::<FontWeightValue>(),
+            Err(FontWeightValueParseError::InvalidFontWeight(_))
+        ));
+    }
+    assert_eq!(
+        "{font..body}".parse::<FontWeightValue>(),
+        Err(FontWeightValueParseError::InvalidReference)
+    );
+}
+
+#[test]
 fn builder_adds_color_overrides() {
     let spec = ThemeSpec::new("Midnight").with_color(
         "text.primary",
@@ -122,6 +151,16 @@ fn json_decodes_radius_values() {
 
     assert_eq!(spec.radii["card"].to_string(), "8px");
     assert_eq!(spec.radii["button"].to_string(), "{card}");
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn json_decodes_font_weight_values() {
+    let source = r#"{"meta":{"name":"Dawn"},"font_weights":{"body":"400","strong":"{body}"}}"#;
+    let spec: ThemeSpec = serde_json::from_str(source).expect("valid specification");
+
+    assert_eq!(spec.font_weights["body"].to_string(), "400");
+    assert_eq!(spec.font_weights["strong"].to_string(), "{body}");
 }
 
 #[cfg(feature = "toml")]

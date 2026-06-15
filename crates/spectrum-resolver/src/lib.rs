@@ -5,12 +5,14 @@
 
 mod color;
 mod error;
+mod font_weight;
 mod length;
 mod radius;
 mod theme;
 
 pub use color::{ColorBinding, resolve_colors};
 pub use error::ResolveError;
+pub use font_weight::resolve_font_weights;
 pub use length::resolve_lengths;
 pub use radius::resolve_radii;
 pub use theme::{ResolvedTheme, resolve_theme};

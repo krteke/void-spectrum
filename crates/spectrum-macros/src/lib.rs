@@ -171,6 +171,7 @@ fn include_schema(mut schema: ThemeSchema, path: &LitStr) -> Result<TokenStream2
     let color: Type = syn::parse2(quote!(#facade::Color))?;
     let length: Type = syn::parse2(quote!(#facade::Length))?;
     let radius: Type = syn::parse2(quote!(#facade::Radius))?;
+    let font_weight: Type = syn::parse2(quote!(#facade::FontWeight))?;
     let entries = resolved
         .colors
         .keys()
@@ -186,6 +187,12 @@ fn include_schema(mut schema: ThemeSchema, path: &LitStr) -> Result<TokenStream2
                 .radii
                 .keys()
                 .map(|path| (token_segments(path), radius.clone())),
+        )
+        .chain(
+            resolved
+                .font_weights
+                .keys()
+                .map(|path| (token_segments(path), font_weight.clone())),
         )
         .collect::<Vec<_>>();
     schema.2 = file_tokens(&entries, path.span())?;
@@ -255,6 +262,15 @@ fn resolved_theme_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStr
                 .expect("embedded radius was validated at compile time")
         ))
     });
+    let font_weights = theme.font_weights.iter().map(|(path, weight)| {
+        let path = LitStr::new(path, Span::call_site());
+        let weight = weight.value();
+        quote!((
+            #path.to_owned(),
+            #facade::FontWeight::new(#weight)
+                .expect("embedded font weight was validated at compile time")
+        ))
+    });
 
     quote! {
         #facade::__private::ResolvedTheme {
@@ -269,6 +285,7 @@ fn resolved_theme_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStr
             colors: ::std::collections::BTreeMap::from([#(#colors),*]),
             lengths: ::std::collections::BTreeMap::from([#(#lengths),*]),
             radii: ::std::collections::BTreeMap::from([#(#radii),*]),
+            font_weights: ::std::collections::BTreeMap::from([#(#font_weights),*]),
         }
     }
 }

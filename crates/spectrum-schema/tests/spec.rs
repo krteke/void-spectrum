@@ -1,7 +1,7 @@
 //! Tests for the top-level theme specification.
 
-use spectrum_core::{Color, Length, LengthUnit, Radius};
-use spectrum_schema::{LengthValue, RadiusValue, ThemeSpec};
+use spectrum_core::{Color, FontWeight, Length, LengthUnit, Radius};
+use spectrum_schema::{FontWeightValue, LengthValue, RadiusValue, ThemeSpec};
 
 #[test]
 fn constructor_has_no_seed() {
@@ -34,6 +34,15 @@ fn builder_adds_radius_overrides() {
     let spec = ThemeSpec::new("Midnight").with_radius("card", RadiusValue::Literal(radius));
 
     assert_eq!(spec.radii["card"], RadiusValue::Literal(radius));
+}
+
+#[test]
+fn builder_adds_font_weight_overrides() {
+    let weight = FontWeight::new(600).expect("weight");
+    let spec =
+        ThemeSpec::new("Midnight").with_font_weight("body", FontWeightValue::Literal(weight));
+
+    assert_eq!(spec.font_weights["body"], FontWeightValue::Literal(weight));
 }
 
 #[cfg(feature = "json")]
@@ -80,4 +89,13 @@ fn toml_decodes_radius_overrides() {
     let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
 
     assert_eq!(spec.radii["card"].to_string(), "0.5rem");
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn toml_decodes_font_weight_overrides() {
+    let source = "[meta]\nname = \"Dawn\"\n\n[font_weights]\nbody = \"450\"\n";
+    let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
+
+    assert_eq!(spec.font_weights["body"].to_string(), "450");
 }
