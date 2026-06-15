@@ -1,18 +1,20 @@
 //! Tests for the resolved theme output.
 
-use spectrum_core::{Color, Length, LengthUnit};
+use spectrum_core::{Color, Length, LengthUnit, Radius};
 use spectrum_palette::MaterialColor;
 use spectrum_resolver::{ColorBinding, ResolveError, resolve_theme};
-use spectrum_schema::{LengthValue, ThemeMode, ThemeSpec};
+use spectrum_schema::{LengthValue, RadiusValue, ThemeMode, ThemeSpec};
 
 #[test]
 fn resolves_an_owned_theme_output() {
     let gap = Length::new(8.0, LengthUnit::Px).expect("finite");
+    let radius = "6px".parse::<Radius>().expect("radius");
     let mut spec = ThemeSpec::new("Demo")
         .with_seed(Color::new(10, 20, 30))
         .with_color("accent", "#5078c8".parse().expect("literal"))
         .with_color("focus", "{accent}".parse().expect("reference"))
-        .with_length("spacing.medium", LengthValue::Literal(gap));
+        .with_length("spacing.medium", LengthValue::Literal(gap))
+        .with_radius("radius.card", RadiusValue::Literal(radius));
     spec.meta.mode = ThemeMode::Light;
 
     let theme = resolve_theme(&spec).expect("resolved theme");
@@ -25,6 +27,7 @@ fn resolves_an_owned_theme_output() {
         ColorBinding::Color(Color::new(80, 120, 200))
     );
     assert_eq!(theme.lengths["spacing.medium"], gap);
+    assert_eq!(theme.radii["radius.card"], radius);
 }
 
 #[test]

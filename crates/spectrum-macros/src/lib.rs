@@ -239,6 +239,15 @@ fn resolved_theme_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStr
                 .expect("embedded length was validated at compile time")
         ))
     });
+    let radii = theme.radii.iter().map(|(path, radius)| {
+        let path = LitStr::new(path, Span::call_site());
+        let radius = radius.to_string();
+        quote!((
+            #path.to_owned(),
+            #radius.parse::<#facade::Radius>()
+                .expect("embedded radius was validated at compile time")
+        ))
+    });
 
     quote! {
         #facade::__private::ResolvedTheme {
@@ -252,6 +261,7 @@ fn resolved_theme_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStr
             seed: #seed,
             colors: ::std::collections::BTreeMap::from([#(#colors),*]),
             lengths: ::std::collections::BTreeMap::from([#(#lengths),*]),
+            radii: ::std::collections::BTreeMap::from([#(#radii),*]),
         }
     }
 }

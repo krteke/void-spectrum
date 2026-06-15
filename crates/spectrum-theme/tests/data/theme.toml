@@ -13,3 +13,6 @@ mode = "light"
 [lengths]
 "spacing.medium" = "8px"
 "editor.gutter_width" = "3rem"
+
+[radii]
+"radius.card" = "12px"

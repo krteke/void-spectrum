@@ -116,6 +116,10 @@ fn file_contract_loads_embedded_values_and_supports_seed_override() {
     assert_eq!(blue.spacing.medium.to_string(), "8px");
     assert_eq!(red.spacing.medium.to_string(), "8px");
     assert_eq!(blue.editor.gutter_width.to_string(), "3rem");
+    assert_eq!(
+        FileTheme::__embedded_theme().radii["radius.card"].to_string(),
+        "12px"
+    );
 }
 
 #[cfg(feature = "seed")]
