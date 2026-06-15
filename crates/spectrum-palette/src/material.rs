@@ -1,4 +1,6 @@
-use spectrum_core::{Color, ThemeMode};
+use spectrum_core::Color;
+#[cfg(feature = "seed")]
+use spectrum_core::ThemeMode;
 
 /// A stable role in the Material color source namespace.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -353,6 +355,7 @@ impl MaterialColors {
     }
 }
 
+#[cfg(feature = "seed")]
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct MaterialToneSet {
     pub(crate) accent: u8,
@@ -378,6 +381,7 @@ pub(crate) struct MaterialToneSet {
     pub(crate) inverse_primary: u8,
 }
 
+#[cfg(feature = "seed")]
 impl MaterialToneSet {
     pub(crate) const fn for_mode(mode: ThemeMode) -> Self {
         match mode {

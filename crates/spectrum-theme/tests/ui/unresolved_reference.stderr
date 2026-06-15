@@ -1,0 +1,5 @@
+error: color token 'editor.cursor' references unresolved token 'missing.token'
+ --> tests/ui/unresolved_reference.rs:5:14
+  |
+5 |     source = "unresolved_reference.toml";
+  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^

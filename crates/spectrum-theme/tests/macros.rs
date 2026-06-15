@@ -22,7 +22,7 @@ define_theme_tokens! {
 
 include_theme_tokens! {
     pub struct FileTheme;
-    source = include_str!("data/theme.toml");
+    source = "data/theme.toml";
     format = toml;
 }
 

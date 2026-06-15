@@ -10,7 +10,7 @@ use spectrum_schema::{ThemeMode, ThemeSpec};
 use std::{collections::BTreeMap, fs};
 use syn::{
     Ident, LitStr, Result, Token as SynToken, Type, Visibility, braced, parse::Parse,
-    parse::ParseStream, parse_macro_input, spanned::Spanned,
+    parse::ParseStream, parse_macro_input,
 };
 
 struct ThemeSchema(Visibility, Ident, Vec<Token>);
@@ -57,14 +57,7 @@ impl Parse for IncludeSchema {
         input.parse::<SynToken![;]>()?;
         parse_word(input, "source")?;
         input.parse::<SynToken![=]>()?;
-        let include: syn::Macro = input.parse()?;
-        if !include.path.is_ident("include_str") {
-            return Err(syn::Error::new(
-                include.path.span(),
-                "expected `include_str!`",
-            ));
-        }
-        let path = include.parse_body()?;
+        let path = input.parse()?;
         input.parse::<SynToken![;]>()?;
         parse_word(input, "format")?;
         input.parse::<SynToken![=]>()?;
@@ -87,17 +80,22 @@ pub fn define_theme_tokens(input: TokenStream) -> TokenStream {
     expand_schema(parse_macro_input!(input as ThemeSchema), None).into()
 }
 
-/// Defines a strongly typed color-token contract from a TOML theme file.
+/// Defines and embeds a strongly typed color-token contract from a TOML theme file.
+///
+/// The source path is relative to the Rust source file containing the macro
+/// invocation. rust-analyzer may incorrectly report `No such file or directory
+/// (os error 2)` on a valid path. `cargo check` and `cargo build` remain
+/// authoritative and embed the file correctly.
 #[proc_macro]
 pub fn include_theme_tokens(input: TokenStream) -> TokenStream {
     let IncludeSchema(schema, path) = parse_macro_input!(input as IncludeSchema);
-    match include_schema(schema, path) {
+    match include_schema(schema, &path) {
         Ok(tokens) => tokens.into(),
         Err(error) => error.into_compile_error().into(),
     }
 }
 
-fn expand_schema(schema: ThemeSchema, embedded: Option<(LitStr, ResolvedTheme)>) -> TokenStream2 {
+fn expand_schema(schema: ThemeSchema, embedded: Option<ResolvedTheme>) -> TokenStream2 {
     let ThemeSchema(visibility, name, tokens) = schema;
     let mut generated = Vec::new();
     let facade = facade_path();
@@ -109,10 +107,9 @@ fn expand_schema(schema: ThemeSchema, embedded: Option<(LitStr, ResolvedTheme)>)
         &mut generated,
         &facade,
     );
-    let loader = embedded.map(|(path, theme)| {
+    let loader = embedded.map(|theme| {
         let theme = resolved_theme_expr(&theme, &facade);
         quote! {
-            const _: &str = include_str!(#path);
             impl #name {
                 fn __embedded_theme() -> &'static #facade::__private::ResolvedTheme {
                     static THEME: ::std::sync::OnceLock<#facade::__private::ResolvedTheme> =
@@ -158,7 +155,7 @@ fn expand_schema(schema: ThemeSchema, embedded: Option<(LitStr, ResolvedTheme)>)
     }
 }
 
-fn include_schema(mut schema: ThemeSchema, path: LitStr) -> Result<TokenStream2> {
+fn include_schema(mut schema: ThemeSchema, path: &LitStr) -> Result<TokenStream2> {
     let file = path
         .span()
         .local_file()
@@ -178,7 +175,7 @@ fn include_schema(mut schema: ThemeSchema, path: LitStr) -> Result<TokenStream2>
     let facade = facade_path();
     let ty = syn::parse2(quote!(#facade::Color))?;
     schema.2 = file_tokens(&paths, &ty, path.span())?;
-    Ok(expand_schema(schema, Some((path, resolved))))
+    Ok(expand_schema(schema, Some(resolved)))
 }
 
 fn file_tokens(paths: &[Vec<String>], ty: &Type, span: Span) -> Result<Vec<Token>> {
