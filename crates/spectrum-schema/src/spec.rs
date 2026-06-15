@@ -3,7 +3,10 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use spectrum_core::Color;
 
-use crate::{ColorValue, FontStyleValue, FontWeightValue, LengthValue, RadiusValue, ThemeMeta};
+use crate::{
+    ColorValue, FontStyleValue, FontWeightValue, LengthValue, LineHeightValue, RadiusValue,
+    ThemeMeta,
+};
 
 /// A partially specified theme configuration.
 ///
@@ -37,6 +40,9 @@ pub struct ThemeSpec {
     /// Font-style token overrides keyed by token path.
     #[serde(default)]
     pub font_styles: BTreeMap<String, FontStyleValue>,
+    /// Line-height token overrides keyed by token path.
+    #[serde(default)]
+    pub line_heights: BTreeMap<String, LineHeightValue>,
 }
 
 impl ThemeSpec {
@@ -50,6 +56,7 @@ impl ThemeSpec {
             radii: BTreeMap::new(),
             font_weights: BTreeMap::new(),
             font_styles: BTreeMap::new(),
+            line_heights: BTreeMap::new(),
         }
     }
 
@@ -92,6 +99,13 @@ impl ThemeSpec {
     #[must_use]
     pub fn with_font_style(mut self, path: impl Into<String>, value: FontStyleValue) -> Self {
         self.font_styles.insert(path.into(), value);
+        self
+    }
+
+    /// Adds or replaces a line-height token override.
+    #[must_use]
+    pub fn with_line_height(mut self, path: impl Into<String>, value: LineHeightValue) -> Self {
+        self.line_heights.insert(path.into(), value);
         self
     }
 }

@@ -1,8 +1,9 @@
 //! Tests for the resolved theme output.
 
-use spectrum_core::{Color, FontStyle, FontWeight, Length, LengthUnit, Radius};
+use spectrum_core::{Color, FontStyle, FontWeight, Length, LengthUnit, LineHeight, Radius};
 use spectrum_palette::MaterialColor;
 use spectrum_resolver::{ColorBinding, ResolveError, resolve_theme};
+use spectrum_schema::LineHeightValue;
 use spectrum_schema::{
     FontStyleValue, FontWeightValue, LengthValue, RadiusValue, ThemeMode, ThemeSpec,
 };
@@ -19,7 +20,11 @@ fn resolves_an_owned_theme_output() {
         .with_length("spacing.medium", LengthValue::Literal(gap))
         .with_radius("radius.card", RadiusValue::Literal(radius))
         .with_font_weight("font.body", FontWeightValue::Literal(weight))
-        .with_font_style("font.style", FontStyleValue::Literal(FontStyle::Italic));
+        .with_font_style("font.style", FontStyleValue::Literal(FontStyle::Italic))
+        .with_line_height(
+            "line_height.body",
+            LineHeightValue::Literal(LineHeight::multiplier(1.5).expect("line height")),
+        );
     spec.meta.mode = ThemeMode::Light;
 
     let theme = resolve_theme(&spec).expect("resolved theme");
@@ -35,6 +40,10 @@ fn resolves_an_owned_theme_output() {
     assert_eq!(theme.radii["radius.card"], radius);
     assert_eq!(theme.font_weights["font.body"], weight);
     assert_eq!(theme.font_styles["font.style"], FontStyle::Italic);
+    assert_eq!(
+        theme.line_heights["line_height.body"],
+        LineHeight::multiplier(1.5).expect("line height")
+    );
 }
 
 #[test]

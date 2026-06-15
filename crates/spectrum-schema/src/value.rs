@@ -1,11 +1,11 @@
 use core::fmt;
 use core::str::FromStr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use spectrum_core::{Color, FontStyle, FontWeight, Length, Radius};
+use spectrum_core::{Color, FontStyle, FontWeight, Length, LineHeight, Radius};
 
 use crate::{
     ColorValueParseError, FontStyleValueParseError, FontWeightValueParseError,
-    LengthValueParseError, RadiusValueParseError,
+    LengthValueParseError, LineHeightValueParseError, RadiusValueParseError,
 };
 
 /// A validated dot-separated token reference.
@@ -82,6 +82,15 @@ pub enum FontStyleValue {
     Reference(TokenReference),
 }
 
+/// A direct line height or a reference to another line-height token.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LineHeightValue {
+    /// A concrete line height.
+    Literal(LineHeight),
+    /// A token reference resolved later.
+    Reference(TokenReference),
+}
+
 macro_rules! impl_from_str {
     ($name:ident, $err:ty, $err_type:ident) => {
         impl FromStr for $name {
@@ -137,6 +146,7 @@ impl_string_value!(ColorValue);
 impl_string_value!(FontStyleValue);
 impl_string_value!(FontWeightValue);
 impl_string_value!(LengthValue);
+impl_string_value!(LineHeightValue);
 impl_string_value!(RadiusValue);
 impl_from_str!(ColorValue, ColorValueParseError, InvalidColor);
 impl_from_str!(FontStyleValue, FontStyleValueParseError, InvalidFontStyle);
@@ -146,4 +156,9 @@ impl_from_str!(
     InvalidFontWeight
 );
 impl_from_str!(LengthValue, LengthValueParseError, InvalidLength);
+impl_from_str!(
+    LineHeightValue,
+    LineHeightValueParseError,
+    InvalidLineHeight
+);
 impl_from_str!(RadiusValue, RadiusValueParseError, InvalidRadius);

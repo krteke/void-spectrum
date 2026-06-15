@@ -1,6 +1,7 @@
 use core::fmt;
 use spectrum_core::{
-    ColorParseError, FontStyleParseError, FontWeightParseError, LengthParseError, RadiusParseError,
+    ColorParseError, FontStyleParseError, FontWeightParseError, LengthParseError,
+    LineHeightParseError, RadiusParseError,
 };
 
 /// Describes why a color value could not be parsed.
@@ -102,3 +103,23 @@ impl fmt::Display for FontStyleValueParseError {
 }
 
 impl std::error::Error for FontStyleValueParseError {}
+
+/// Describes why a line-height token value could not be parsed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineHeightValueParseError {
+    /// The direct line height is invalid.
+    InvalidLineHeight(LineHeightParseError),
+    /// The token reference syntax is invalid.
+    InvalidReference,
+}
+
+impl fmt::Display for LineHeightValueParseError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidLineHeight(error) => error.fmt(formatter),
+            Self::InvalidReference => formatter.write_str("invalid line-height token reference"),
+        }
+    }
+}
+
+impl std::error::Error for LineHeightValueParseError {}

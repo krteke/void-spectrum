@@ -10,10 +10,11 @@ use spectrum_resolver::resolve_theme;
 use spectrum_schema::ThemeSpec;
 use spectrum_theme::{
     __private::{
-        ColorSource, FontStyleSource, FontWeightSource, LengthSource, RadiusSource, TokenSource,
+        ColorSource, FontStyleSource, FontWeightSource, LengthSource, LineHeightSource,
+        RadiusSource, TokenSource,
     },
-    Color, FontStyle, FontWeight, Length, LengthUnit, Radius, ThemeBuildError, define_theme_tokens,
-    include_theme_tokens,
+    Color, FontStyle, FontWeight, Length, LengthUnit, LineHeight, Radius, ThemeBuildError,
+    define_theme_tokens, include_theme_tokens,
 };
 
 define_theme_tokens! {
@@ -30,6 +31,17 @@ define_theme_tokens! {
         font {
             body: FontWeight,
             style: FontStyle,
+        }
+        line_height {
+            body: LineHeight,
+        }
+    }
+}
+
+define_theme_tokens! {
+    struct LineHeightTheme {
+        line_height {
+            body: LineHeight,
         }
     }
 }
@@ -108,6 +120,12 @@ impl FontStyleSource for StaticSource {
     }
 }
 
+impl LineHeightSource for StaticSource {
+    fn line_height(&self, _: &str) -> Result<LineHeight, Self::Error> {
+        Ok("1.25".parse().expect("line height"))
+    }
+}
+
 struct LengthOnlySource;
 
 impl TokenSource for LengthOnlySource {
@@ -156,6 +174,18 @@ impl FontStyleSource for FontStyleOnlySource {
     }
 }
 
+struct LineHeightOnlySource;
+
+impl TokenSource for LineHeightOnlySource {
+    type Error = Infallible;
+}
+
+impl LineHeightSource for LineHeightOnlySource {
+    fn line_height(&self, _: &str) -> Result<LineHeight, Self::Error> {
+        Ok("24px".parse().expect("line height"))
+    }
+}
+
 #[test]
 fn builds_from_a_custom_token_source() {
     let theme = AppTheme::try_from_source(&StaticSource).expect("typed theme");
@@ -165,6 +195,7 @@ fn builds_from_a_custom_token_source() {
     assert_eq!(theme.radius.card.to_string(), "7px");
     assert_eq!(theme.font.body.value(), 700);
     assert_eq!(theme.font.style, FontStyle::Oblique);
+    assert_eq!(theme.line_height.body.to_string(), "1.25");
     assert_eq!(file_theme.editor.selection.background, Color::new(1, 2, 3));
     assert_eq!(file_theme.spacing.medium.to_string(), "9px");
     assert_eq!(file_theme.radius.card.to_string(), "7px");
@@ -172,6 +203,8 @@ fn builds_from_a_custom_token_source() {
     assert_eq!(file_theme.editor.font_weight.value(), 700);
     assert_eq!(file_theme.font.style, FontStyle::Oblique);
     assert_eq!(file_theme.editor.font_style, FontStyle::Oblique);
+    assert_eq!(file_theme.line_height.body.to_string(), "1.25");
+    assert_eq!(file_theme.editor.line_height.to_string(), "1.25");
 
     let length_theme = LengthTheme::try_from_source(&LengthOnlySource).expect("length theme");
     assert_eq!(length_theme.spacing.medium.to_string(), "12px");
@@ -182,6 +215,9 @@ fn builds_from_a_custom_token_source() {
     assert_eq!(weight_theme.font.body.value(), 500);
     let style_theme = FontStyleTheme::try_from_source(&FontStyleOnlySource).expect("style theme");
     assert_eq!(style_theme.font.style, FontStyle::Italic);
+    let line_height_theme =
+        LineHeightTheme::try_from_source(&LineHeightOnlySource).expect("line-height theme");
+    assert_eq!(line_height_theme.line_height.body.to_string(), "24px");
 }
 
 #[cfg(feature = "seed")]
@@ -197,7 +233,8 @@ fn builds_material_bindings_from_resolved_themes() {
             .with_length("spacing.medium", "8px".parse().expect("length"))
             .with_radius("radius.card", "6px".parse().expect("radius"))
             .with_font_weight("font.body", "600".parse().expect("weight"))
-            .with_font_style("font.style", "normal".parse().expect("style")),
+            .with_font_style("font.style", "normal".parse().expect("style"))
+            .with_line_height("line_height.body", "1.75".parse().expect("line height")),
     )
     .expect("resolved");
     let theme = AppTheme::try_from_source(&resolved).expect("typed theme");
@@ -206,6 +243,7 @@ fn builds_material_bindings_from_resolved_themes() {
     assert_eq!(theme.radius.card.to_string(), "6px");
     assert_eq!(theme.font.body.value(), 600);
     assert_eq!(theme.font.style, FontStyle::Normal);
+    assert_eq!(theme.line_height.body.to_string(), "1.75");
 }
 
 #[cfg(feature = "seed")]
@@ -231,6 +269,19 @@ fn file_contract_loads_embedded_values_and_supports_seed_override() {
     assert_eq!(red.editor.font_weight.value(), 450);
     assert_eq!(blue.font.style, FontStyle::Italic);
     assert_eq!(red.editor.font_style, FontStyle::Italic);
+    assert_eq!(blue.line_height.body.to_string(), "1.5");
+    assert_eq!(red.editor.line_height.to_string(), "20px");
+}
+
+#[cfg(feature = "seed")]
+#[test]
+fn typed_build_reports_missing_line_height_tokens() {
+    let resolved = resolve_theme(&ThemeSpec::new("Empty")).expect("resolved");
+
+    assert!(matches!(
+        LineHeightTheme::try_from_source(&resolved),
+        Err(ThemeBuildError::MissingToken { path }) if path == "line_height.body"
+    ));
 }
 
 #[cfg(feature = "seed")]

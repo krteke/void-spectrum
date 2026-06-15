@@ -1,10 +1,10 @@
 //! Tests for color token override values.
 
-use spectrum_core::{Color, FontStyle, FontWeight, Length, LengthUnit, Radius};
+use spectrum_core::{Color, FontStyle, FontWeight, Length, LengthUnit, LineHeight, Radius};
 use spectrum_schema::{
     ColorValue, ColorValueParseError, FontStyleValue, FontStyleValueParseError, FontWeightValue,
-    FontWeightValueParseError, LengthValue, LengthValueParseError, RadiusValue,
-    RadiusValueParseError, ThemeSpec,
+    FontWeightValueParseError, LengthValue, LengthValueParseError, LineHeightValue,
+    LineHeightValueParseError, RadiusValue, RadiusValueParseError, ThemeSpec,
 };
 
 #[test]
@@ -139,6 +139,41 @@ fn rejects_invalid_font_style_values() {
 }
 
 #[test]
+fn parses_line_height_literals_and_references() {
+    assert_eq!(
+        "1.5".parse(),
+        Ok(LineHeightValue::Literal(
+            LineHeight::multiplier(1.5).expect("line height")
+        ))
+    );
+    assert_eq!(
+        "20px".parse(),
+        Ok(LineHeightValue::Literal(
+            "20px".parse().expect("line height")
+        ))
+    );
+
+    let reference = "{line_height.body}"
+        .parse::<LineHeightValue>()
+        .expect("valid reference");
+    assert_eq!(reference.to_string(), "{line_height.body}");
+}
+
+#[test]
+fn rejects_invalid_line_height_values() {
+    for input in ["-1", "-2px", "NaN", "invalid"] {
+        assert!(matches!(
+            input.parse::<LineHeightValue>(),
+            Err(LineHeightValueParseError::InvalidLineHeight(_))
+        ));
+    }
+    assert_eq!(
+        "{line_height..body}".parse::<LineHeightValue>(),
+        Err(LineHeightValueParseError::InvalidReference)
+    );
+}
+
+#[test]
 fn builder_adds_color_overrides() {
     let spec = ThemeSpec::new("Midnight").with_color(
         "text.primary",
@@ -199,6 +234,16 @@ fn json_decodes_font_style_values() {
 
     assert_eq!(spec.font_styles["body"].to_string(), "normal");
     assert_eq!(spec.font_styles["emphasis"].to_string(), "{body}");
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn json_decodes_line_height_values() {
+    let source = r#"{"meta":{"name":"Dawn"},"line_heights":{"body":"1.5","heading":"{body}"}}"#;
+    let spec: ThemeSpec = serde_json::from_str(source).expect("valid specification");
+
+    assert_eq!(spec.line_heights["body"].to_string(), "1.5");
+    assert_eq!(spec.line_heights["heading"].to_string(), "{body}");
 }
 
 #[cfg(feature = "toml")]

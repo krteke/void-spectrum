@@ -173,6 +173,7 @@ fn include_schema(mut schema: ThemeSchema, path: &LitStr) -> Result<TokenStream2
     let radius: Type = syn::parse2(quote!(#facade::Radius))?;
     let font_weight: Type = syn::parse2(quote!(#facade::FontWeight))?;
     let font_style: Type = syn::parse2(quote!(#facade::FontStyle))?;
+    let line_height: Type = syn::parse2(quote!(#facade::LineHeight))?;
     let entries = resolved
         .colors
         .keys()
@@ -200,6 +201,12 @@ fn include_schema(mut schema: ThemeSchema, path: &LitStr) -> Result<TokenStream2
                 .font_styles
                 .keys()
                 .map(|path| (token_segments(path), font_style.clone())),
+        )
+        .chain(
+            resolved
+                .line_heights
+                .keys()
+                .map(|path| (token_segments(path), line_height.clone())),
         )
         .collect::<Vec<_>>();
     schema.2 = file_tokens(&entries, path.span())?;
@@ -287,6 +294,15 @@ fn resolved_theme_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStr
                 .expect("embedded font style was validated at compile time")
         ))
     });
+    let line_heights = theme.line_heights.iter().map(|(path, line_height)| {
+        let path = LitStr::new(path, Span::call_site());
+        let line_height = line_height.to_string();
+        quote!((
+            #path.to_owned(),
+            #line_height.parse::<#facade::LineHeight>()
+                .expect("embedded line height was validated at compile time")
+        ))
+    });
 
     quote! {
         #facade::__private::ResolvedTheme {
@@ -303,6 +319,7 @@ fn resolved_theme_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStr
             radii: ::std::collections::BTreeMap::from([#(#radii),*]),
             font_weights: ::std::collections::BTreeMap::from([#(#font_weights),*]),
             font_styles: ::std::collections::BTreeMap::from([#(#font_styles),*]),
+            line_heights: ::std::collections::BTreeMap::from([#(#line_heights),*]),
         }
     }
 }

@@ -23,6 +23,8 @@ enum LineHeightValue {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LineHeight(LineHeightValue);
 
+impl Eq for LineHeight {}
+
 impl LineHeight {
     /// Creates a unitless line-height multiplier.
     pub fn multiplier(value: f32) -> Result<Self, LineHeightParseError> {

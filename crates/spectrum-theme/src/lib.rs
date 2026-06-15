@@ -36,7 +36,7 @@ pub enum ThemeBuildError {
 #[cfg(feature = "macros")]
 #[doc(hidden)]
 pub mod __private {
-    use super::{Color, FontStyle, FontWeight, Length, Radius, ThemeBuildError};
+    use super::{Color, FontStyle, FontWeight, Length, LineHeight, Radius, ThemeBuildError};
 
     pub use spectrum_palette::MaterialColor;
     pub use spectrum_resolver::{ColorBinding, ResolvedTheme};
@@ -64,6 +64,10 @@ pub mod __private {
 
     pub trait FontStyleSource: TokenSource {
         fn font_style(&self, path: &str) -> Result<FontStyle, Self::Error>;
+    }
+
+    pub trait LineHeightSource: TokenSource {
+        fn line_height(&self, path: &str) -> Result<LineHeight, Self::Error>;
     }
 
     pub trait TokenValue<S: TokenSource>: Sized {
@@ -97,6 +101,12 @@ pub mod __private {
     impl<S: FontStyleSource> TokenValue<S> for FontStyle {
         fn read(source: &S, path: &str) -> Result<Self, S::Error> {
             source.font_style(path)
+        }
+    }
+
+    impl<S: LineHeightSource> TokenValue<S> for LineHeight {
+        fn read(source: &S, path: &str) -> Result<Self, S::Error> {
+            source.line_height(path)
         }
     }
 
@@ -146,6 +156,12 @@ pub mod __private {
         }
     }
 
+    impl LineHeightSource for ResolvedTheme {
+        fn line_height(&self, path: &str) -> Result<LineHeight, Self::Error> {
+            resolve_line_height(self, path)
+        }
+    }
+
     impl TokenSource for SeededTheme<'_> {
         type Error = ThemeBuildError;
     }
@@ -178,6 +194,25 @@ pub mod __private {
         fn font_style(&self, path: &str) -> Result<FontStyle, Self::Error> {
             resolve_font_style(self.theme, path)
         }
+    }
+
+    impl LineHeightSource for SeededTheme<'_> {
+        fn line_height(&self, path: &str) -> Result<LineHeight, Self::Error> {
+            resolve_line_height(self.theme, path)
+        }
+    }
+
+    fn resolve_line_height(
+        theme: &ResolvedTheme,
+        path: &str,
+    ) -> Result<LineHeight, ThemeBuildError> {
+        theme
+            .line_heights
+            .get(path)
+            .copied()
+            .ok_or_else(|| ThemeBuildError::MissingToken {
+                path: path.to_owned(),
+            })
     }
 
     fn resolve_font_style(theme: &ResolvedTheme, path: &str) -> Result<FontStyle, ThemeBuildError> {

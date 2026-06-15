@@ -1,6 +1,7 @@
 //! Tests for the top-level theme specification.
 
-use spectrum_core::{Color, FontStyle, FontWeight, Length, LengthUnit, Radius};
+use spectrum_core::{Color, FontStyle, FontWeight, Length, LengthUnit, LineHeight, Radius};
+use spectrum_schema::LineHeightValue;
 use spectrum_schema::{FontStyleValue, FontWeightValue, LengthValue, RadiusValue, ThemeSpec};
 
 #[test]
@@ -53,6 +54,18 @@ fn builder_adds_font_style_overrides() {
     assert_eq!(
         spec.font_styles["body"],
         FontStyleValue::Literal(FontStyle::Normal)
+    );
+}
+
+#[test]
+fn builder_adds_line_height_overrides() {
+    let line_height = LineHeight::multiplier(1.5).expect("line height");
+    let spec =
+        ThemeSpec::new("Midnight").with_line_height("body", LineHeightValue::Literal(line_height));
+
+    assert_eq!(
+        spec.line_heights["body"],
+        LineHeightValue::Literal(line_height)
     );
 }
 
@@ -118,4 +131,13 @@ fn toml_decodes_font_style_overrides() {
     let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
 
     assert_eq!(spec.font_styles["emphasis"].to_string(), "oblique");
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn toml_decodes_line_height_overrides() {
+    let source = "[meta]\nname = \"Dawn\"\n\n[line_heights]\nbody = \"20px\"\n";
+    let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
+
+    assert_eq!(spec.line_heights["body"].to_string(), "20px");
 }

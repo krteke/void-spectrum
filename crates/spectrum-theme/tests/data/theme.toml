@@ -24,3 +24,7 @@ mode = "light"
 [font_styles]
 "font.style" = "italic"
 "editor.font_style" = "{font.style}"
+
+[line_heights]
+"line_height.body" = "1.5"
+"editor.line_height" = "20px"
