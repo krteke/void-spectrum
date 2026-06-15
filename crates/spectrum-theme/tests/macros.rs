@@ -9,8 +9,8 @@ use spectrum_resolver::resolve_theme;
 #[cfg(feature = "seed")]
 use spectrum_schema::ThemeSpec;
 use spectrum_theme::{
-    __private::{ColorSource, LengthSource, TokenSource},
-    Color, Length, LengthUnit, ThemeBuildError, define_theme_tokens, include_theme_tokens,
+    __private::{ColorSource, LengthSource, RadiusSource, TokenSource},
+    Color, Length, LengthUnit, Radius, ThemeBuildError, define_theme_tokens, include_theme_tokens,
 };
 
 define_theme_tokens! {
@@ -20,6 +20,17 @@ define_theme_tokens! {
         }
         spacing {
             medium: Length,
+        }
+        radius {
+            card: Radius,
+        }
+    }
+}
+
+define_theme_tokens! {
+    struct RadiusTheme {
+        radius {
+            card: Radius,
         }
     }
 }
@@ -56,6 +67,12 @@ impl LengthSource for StaticSource {
     }
 }
 
+impl RadiusSource for StaticSource {
+    fn radius(&self, _: &str) -> Result<Radius, Self::Error> {
+        Ok("7px".parse().expect("radius"))
+    }
+}
+
 struct LengthOnlySource;
 
 impl TokenSource for LengthOnlySource {
@@ -68,17 +85,33 @@ impl LengthSource for LengthOnlySource {
     }
 }
 
+struct RadiusOnlySource;
+
+impl TokenSource for RadiusOnlySource {
+    type Error = Infallible;
+}
+
+impl RadiusSource for RadiusOnlySource {
+    fn radius(&self, _: &str) -> Result<Radius, Self::Error> {
+        Ok("10px".parse().expect("radius"))
+    }
+}
+
 #[test]
 fn builds_from_a_custom_token_source() {
     let theme = AppTheme::try_from_source(&StaticSource).expect("typed theme");
     let file_theme = FileTheme::try_from_source(&StaticSource).expect("file theme");
     assert_eq!(theme.editor.cursor, Color::new(1, 2, 3));
     assert_eq!(theme.spacing.medium.to_string(), "9px");
+    assert_eq!(theme.radius.card.to_string(), "7px");
     assert_eq!(file_theme.editor.selection.background, Color::new(1, 2, 3));
     assert_eq!(file_theme.spacing.medium.to_string(), "9px");
+    assert_eq!(file_theme.radius.card.to_string(), "7px");
 
     let length_theme = LengthTheme::try_from_source(&LengthOnlySource).expect("length theme");
     assert_eq!(length_theme.spacing.medium.to_string(), "12px");
+    let radius_theme = RadiusTheme::try_from_source(&RadiusOnlySource).expect("radius theme");
+    assert_eq!(radius_theme.radius.card.to_string(), "10px");
 }
 
 #[cfg(feature = "seed")]
@@ -91,12 +124,14 @@ fn builds_material_bindings_from_resolved_themes() {
                 "editor.cursor",
                 "{material.primary}".parse().expect("Material reference"),
             )
-            .with_length("spacing.medium", "8px".parse().expect("length")),
+            .with_length("spacing.medium", "8px".parse().expect("length"))
+            .with_radius("radius.card", "6px".parse().expect("radius")),
     )
     .expect("resolved");
     let theme = AppTheme::try_from_source(&resolved).expect("typed theme");
 
     assert_ne!(theme.editor.cursor, Color::new(0, 0, 255));
+    assert_eq!(theme.radius.card.to_string(), "6px");
 }
 
 #[cfg(feature = "seed")]
@@ -116,10 +151,19 @@ fn file_contract_loads_embedded_values_and_supports_seed_override() {
     assert_eq!(blue.spacing.medium.to_string(), "8px");
     assert_eq!(red.spacing.medium.to_string(), "8px");
     assert_eq!(blue.editor.gutter_width.to_string(), "3rem");
-    assert_eq!(
-        FileTheme::__embedded_theme().radii["radius.card"].to_string(),
-        "12px"
-    );
+    assert_eq!(blue.radius.card.to_string(), "12px");
+    assert_eq!(red.radius.card.to_string(), "12px");
+}
+
+#[cfg(feature = "seed")]
+#[test]
+fn typed_build_reports_missing_radius_tokens() {
+    let resolved = resolve_theme(&ThemeSpec::new("Empty")).expect("resolved");
+
+    assert!(matches!(
+        RadiusTheme::try_from_source(&resolved),
+        Err(ThemeBuildError::MissingToken { path }) if path == "radius.card"
+    ));
 }
 
 #[cfg(feature = "seed")]

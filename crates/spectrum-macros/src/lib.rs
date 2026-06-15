@@ -170,6 +170,7 @@ fn include_schema(mut schema: ThemeSchema, path: &LitStr) -> Result<TokenStream2
     let facade = facade_path();
     let color: Type = syn::parse2(quote!(#facade::Color))?;
     let length: Type = syn::parse2(quote!(#facade::Length))?;
+    let radius: Type = syn::parse2(quote!(#facade::Radius))?;
     let entries = resolved
         .colors
         .keys()
@@ -179,6 +180,12 @@ fn include_schema(mut schema: ThemeSchema, path: &LitStr) -> Result<TokenStream2
                 .lengths
                 .keys()
                 .map(|path| (token_segments(path), length.clone())),
+        )
+        .chain(
+            resolved
+                .radii
+                .keys()
+                .map(|path| (token_segments(path), radius.clone())),
         )
         .collect::<Vec<_>>();
     schema.2 = file_tokens(&entries, path.span())?;

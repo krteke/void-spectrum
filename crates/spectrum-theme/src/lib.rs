@@ -36,7 +36,7 @@ pub enum ThemeBuildError {
 #[cfg(feature = "macros")]
 #[doc(hidden)]
 pub mod __private {
-    use super::{Color, Length, ThemeBuildError};
+    use super::{Color, Length, Radius, ThemeBuildError};
 
     pub use spectrum_palette::MaterialColor;
     pub use spectrum_resolver::{ColorBinding, ResolvedTheme};
@@ -54,6 +54,10 @@ pub mod __private {
         fn length(&self, path: &str) -> Result<Length, Self::Error>;
     }
 
+    pub trait RadiusSource: TokenSource {
+        fn radius(&self, path: &str) -> Result<Radius, Self::Error>;
+    }
+
     pub trait TokenValue<S: TokenSource>: Sized {
         fn read(source: &S, path: &str) -> Result<Self, S::Error>;
     }
@@ -67,6 +71,12 @@ pub mod __private {
     impl<S: LengthSource> TokenValue<S> for Length {
         fn read(source: &S, path: &str) -> Result<Self, S::Error> {
             source.length(path)
+        }
+    }
+
+    impl<S: RadiusSource> TokenValue<S> for Radius {
+        fn read(source: &S, path: &str) -> Result<Self, S::Error> {
+            source.radius(path)
         }
     }
 
@@ -98,6 +108,12 @@ pub mod __private {
         }
     }
 
+    impl RadiusSource for ResolvedTheme {
+        fn radius(&self, path: &str) -> Result<Radius, Self::Error> {
+            resolve_radius(self, path)
+        }
+    }
+
     impl TokenSource for SeededTheme<'_> {
         type Error = ThemeBuildError;
     }
@@ -112,6 +128,22 @@ pub mod __private {
         fn length(&self, path: &str) -> Result<Length, Self::Error> {
             resolve_length(self.theme, path)
         }
+    }
+
+    impl RadiusSource for SeededTheme<'_> {
+        fn radius(&self, path: &str) -> Result<Radius, Self::Error> {
+            resolve_radius(self.theme, path)
+        }
+    }
+
+    fn resolve_radius(theme: &ResolvedTheme, path: &str) -> Result<Radius, ThemeBuildError> {
+        theme
+            .radii
+            .get(path)
+            .copied()
+            .ok_or_else(|| ThemeBuildError::MissingToken {
+                path: path.to_owned(),
+            })
     }
 
     fn resolve_length(theme: &ResolvedTheme, path: &str) -> Result<Length, ThemeBuildError> {
