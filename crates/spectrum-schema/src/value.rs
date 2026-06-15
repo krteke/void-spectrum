@@ -1,8 +1,9 @@
 use core::fmt;
 use core::str::FromStr;
-
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use spectrum_core::{Color, ColorParseError};
+use spectrum_core::{Color, Length};
+
+use crate::{ColorValueParseError, LengthValueParseError};
 
 /// A validated dot-separated token reference.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -40,15 +41,6 @@ pub enum ColorValue {
     Reference(TokenReference),
 }
 
-impl fmt::Display for ColorValue {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Literal(color) => color.fmt(formatter),
-            Self::Reference(reference) => write!(formatter, "{{{}}}", reference.path()),
-        }
-    }
-}
-
 impl FromStr for ColorValue {
     type Err = ColorValueParseError;
 
@@ -66,42 +58,68 @@ impl FromStr for ColorValue {
     }
 }
 
-impl Serialize for ColorValue {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
+/// A direct length or a reference to another length token.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LengthValue {
+    /// A concrete length value.
+    Literal(Length),
+    /// A token reference resolved later.
+    Reference(TokenReference),
 }
 
-impl<'de> Deserialize<'de> for ColorValue {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        String::deserialize(deserializer)?
-            .parse()
-            .map_err(serde::de::Error::custom)
-    }
-}
+impl Eq for LengthValue {}
 
-/// Describes why a color value could not be parsed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ColorValueParseError {
-    /// The direct color is invalid.
-    InvalidColor(ColorParseError),
-    /// The token reference syntax is invalid.
-    InvalidReference,
-}
+impl FromStr for LengthValue {
+    type Err = LengthValueParseError;
 
-impl fmt::Display for ColorValueParseError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidColor(error) => error.fmt(formatter),
-            Self::InvalidReference => formatter.write_str("invalid color token reference"),
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        if let Some(path) = input
+            .strip_prefix('{')
+            .and_then(|value| value.strip_suffix('}'))
+        {
+            return TokenReference::new(path)
+                .map(Self::Reference)
+                .map_err(|_| LengthValueParseError::InvalidReference);
         }
+        input
+            .parse()
+            .map(Self::Literal)
+            .map_err(LengthValueParseError::InvalidLength)
     }
 }
 
-impl std::error::Error for ColorValueParseError {}
+macro_rules! impl_string_value {
+    ($name:ident) => {
+        impl fmt::Display for $name {
+            fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    Self::Literal(value) => value.fmt(formatter),
+                    Self::Reference(reference) => write!(formatter, "{{{}}}", reference.path()),
+                }
+            }
+        }
+
+        impl Serialize for $name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                serializer.serialize_str(&self.to_string())
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                String::deserialize(deserializer)?
+                    .parse()
+                    .map_err(serde::de::Error::custom)
+            }
+        }
+    };
+}
+
+impl_string_value!(ColorValue);
+impl_string_value!(LengthValue);

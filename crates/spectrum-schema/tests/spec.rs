@@ -1,7 +1,7 @@
 //! Tests for the top-level theme specification.
 
-use spectrum_core::Color;
-use spectrum_schema::ThemeSpec;
+use spectrum_core::{Color, Length, LengthUnit};
+use spectrum_schema::{LengthValue, ThemeSpec};
 
 #[test]
 fn constructor_has_no_seed() {
@@ -17,6 +17,15 @@ fn builder_sets_a_typed_seed() {
     let spec = ThemeSpec::new("Midnight").with_seed(seed);
 
     assert_eq!(spec.seed, Some(seed));
+}
+
+#[test]
+fn builder_adds_length_overrides() {
+    let length = Length::new(8.0, LengthUnit::Px).expect("finite");
+    let spec =
+        ThemeSpec::new("Midnight").with_length("spacing.medium", LengthValue::Literal(length));
+
+    assert_eq!(spec.lengths["spacing.medium"], LengthValue::Literal(length));
 }
 
 #[cfg(feature = "json")]
@@ -45,4 +54,13 @@ fn toml_supports_an_optional_rgba_seed() {
     let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
 
     assert_eq!(spec.seed, Some(Color::new_rgba(80, 120, 200, 128)));
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn toml_decodes_length_overrides() {
+    let source = "[meta]\nname = \"Dawn\"\n\n[lengths]\n\"spacing.medium\" = \"1.5rem\"\n";
+    let spec: ThemeSpec = toml::from_str(source).expect("valid specification");
+
+    assert_eq!(spec.lengths["spacing.medium"].to_string(), "1.5rem");
 }

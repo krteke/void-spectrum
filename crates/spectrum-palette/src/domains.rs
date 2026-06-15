@@ -4,7 +4,6 @@ use spectrum_core::Color;
 use crate::tonal::{TonalPalette, argb_from_color};
 
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
 pub(crate) struct ColorDomains {
     pub(crate) primary: TonalPalette,
     pub(crate) secondary: TonalPalette,
