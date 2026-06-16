@@ -1,10 +1,11 @@
 //! Iced adapter behavior tests.
 
-use spectrum_core::{Color, Length, LengthUnit, Radius, ShadowLayer};
+use spectrum_core::{Color, FontStyle, FontWeight, Length, LengthUnit, Radius, ShadowLayer};
 use spectrum_iced::{
-    IcedBorderAdapter, IcedBorderError, IcedColorAdapter, IcedLengthAdapter, IcedLengthError,
-    IcedRadiusAdapter, IcedRadiusError, IcedShadowAdapter, IcedShadowError, border, color, length,
-    radius, shadow,
+    IcedBorderAdapter, IcedBorderError, IcedColorAdapter, IcedFontStyleAdapter,
+    IcedFontWeightAdapter, IcedLengthAdapter, IcedLengthError, IcedRadiusAdapter, IcedRadiusError,
+    IcedShadowAdapter, IcedShadowError, border, color, font_style, font_weight, length, radius,
+    shadow,
 };
 
 #[test]
@@ -20,6 +21,42 @@ fn preserves_alpha_for_iced_colors() {
     assert_eq!(
         color(Color::new_rgba(12, 34, 56, 128)),
         iced_core::Color::from_rgba8(12, 34, 56, 128.0 / 255.0)
+    );
+}
+
+#[test]
+fn maps_font_weights_to_nearest_iced_weight() {
+    assert_eq!(
+        FontWeight::THIN.font_weight(),
+        iced_core::font::Weight::Thin
+    );
+    assert_eq!(
+        font_weight(FontWeight::SEMI_BOLD),
+        iced_core::font::Weight::Semibold
+    );
+    assert_eq!(
+        FontWeight::new(650).expect("weight").font_weight(),
+        iced_core::font::Weight::Bold
+    );
+    assert_eq!(
+        FontWeight::new(1000).expect("weight").font_weight(),
+        iced_core::font::Weight::Black
+    );
+}
+
+#[test]
+fn maps_font_styles_to_iced_styles() {
+    assert_eq!(
+        FontStyle::Normal.font_style(),
+        iced_core::font::Style::Normal
+    );
+    assert_eq!(
+        font_style(FontStyle::Italic),
+        iced_core::font::Style::Italic
+    );
+    assert_eq!(
+        FontStyle::Oblique.font_style(),
+        iced_core::font::Style::Oblique
     );
 }
 

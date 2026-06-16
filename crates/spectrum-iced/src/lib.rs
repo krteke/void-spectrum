@@ -1,6 +1,6 @@
 //! Iced conversions for Void Spectrum core values.
 
-use spectrum_core::{Color, Length, LengthUnit, Radius, ShadowLayer};
+use spectrum_core::{Color, FontStyle, FontWeight, Length, LengthUnit, Radius, ShadowLayer};
 
 mod error;
 
@@ -16,6 +16,46 @@ pub trait IcedColorAdapter {
 impl IcedColorAdapter for Color {
     fn color(&self) -> iced_core::Color {
         iced_core::Color::from_rgba8(self.red(), self.green(), self.blue(), alpha(self.alpha()))
+    }
+}
+
+/// Converts a Spectrum font weight into an Iced font weight.
+pub trait IcedFontWeightAdapter {
+    /// Converts the font weight to the nearest Iced font weight.
+    #[must_use]
+    fn font_weight(&self) -> iced_core::font::Weight;
+}
+
+impl IcedFontWeightAdapter for FontWeight {
+    fn font_weight(&self) -> iced_core::font::Weight {
+        match self.value() {
+            1..=149 => iced_core::font::Weight::Thin,
+            150..=249 => iced_core::font::Weight::ExtraLight,
+            250..=349 => iced_core::font::Weight::Light,
+            350..=449 => iced_core::font::Weight::Normal,
+            450..=549 => iced_core::font::Weight::Medium,
+            550..=649 => iced_core::font::Weight::Semibold,
+            650..=749 => iced_core::font::Weight::Bold,
+            750..=849 => iced_core::font::Weight::ExtraBold,
+            _ => iced_core::font::Weight::Black,
+        }
+    }
+}
+
+/// Converts a Spectrum font style into an Iced font style.
+pub trait IcedFontStyleAdapter {
+    /// Converts the font style to an Iced font style.
+    #[must_use]
+    fn font_style(&self) -> iced_core::font::Style;
+}
+
+impl IcedFontStyleAdapter for FontStyle {
+    fn font_style(&self) -> iced_core::font::Style {
+        match self {
+            Self::Normal => iced_core::font::Style::Normal,
+            Self::Italic => iced_core::font::Style::Italic,
+            Self::Oblique => iced_core::font::Style::Oblique,
+        }
     }
 }
 
@@ -137,6 +177,18 @@ impl IcedShadowAdapter for ShadowLayer {
 #[must_use]
 pub fn color(value: Color) -> iced_core::Color {
     value.color()
+}
+
+/// Converts a Spectrum font weight into an Iced font weight.
+#[must_use]
+pub fn font_weight(value: FontWeight) -> iced_core::font::Weight {
+    value.font_weight()
+}
+
+/// Converts a Spectrum font style into an Iced font style.
+#[must_use]
+pub fn font_style(value: FontStyle) -> iced_core::font::Style {
+    value.font_style()
 }
 
 /// Converts a Spectrum length into an Iced length.
