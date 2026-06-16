@@ -2,6 +2,7 @@
 
 use ratatui::style::{Color as RatatuiColor, Modifier, Style};
 use spectrum_core::{Color, FontStyle, FontWeight};
+use spectrum_ratatui::RatatuiTextStyle;
 use spectrum_ratatui::{RatatuiColorAdapter, RatatuiModifierAdapter, RatatuiStyleAdapter, style};
 
 #[test]
@@ -54,5 +55,23 @@ fn combines_font_weight_and_style_modifiers() {
     assert_eq!(
         (FontWeight::BOLD, FontStyle::Italic).modifier(),
         Modifier::BOLD | Modifier::ITALIC
+    );
+}
+
+#[test]
+fn builds_text_styles_from_color_and_font_values() {
+    let text_style = RatatuiTextStyle {
+        foreground: Some(Color::new(1, 2, 3)),
+        background: Some(Color::new(4, 5, 6)),
+        font_weight: Some(FontWeight::BOLD),
+        font_style: Some(FontStyle::Italic),
+    };
+
+    assert_eq!(
+        text_style.style(),
+        Style::new()
+            .fg(RatatuiColor::Rgb(1, 2, 3))
+            .bg(RatatuiColor::Rgb(4, 5, 6))
+            .add_modifier(Modifier::BOLD | Modifier::ITALIC)
     );
 }

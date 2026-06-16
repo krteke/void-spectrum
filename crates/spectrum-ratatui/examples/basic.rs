@@ -12,7 +12,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 use spectrum_core::{Color, FontStyle, FontWeight};
-use spectrum_ratatui::{RatatuiModifierAdapter, RatatuiStyleAdapter};
+use spectrum_ratatui::{RatatuiStyleAdapter, RatatuiTextStyle};
 use std::{io, time::Duration};
 
 fn main() -> io::Result<()> {
@@ -35,7 +35,11 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> 
     let fg = Color::new(232, 238, 247);
     let accent = Color::new(125, 92, 255);
     let muted = Color::new(142, 151, 170);
-    let title_modifier = (FontWeight::BOLD, FontStyle::Italic).modifier();
+    let title_style = RatatuiTextStyle::new()
+        .with_fg(accent)
+        .with_bg(bg)
+        .with_weight(FontWeight::BOLD)
+        .with_style(FontStyle::Italic);
 
     loop {
         terminal.draw(|frame| {
@@ -52,11 +56,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> 
             );
             frame.render_widget(
                 Paragraph::new("Void Spectrum Ratatui")
-                    .style(
-                        (Some(accent), Some(bg))
-                            .style()
-                            .add_modifier(title_modifier),
-                    )
+                    .style(title_style.style())
                     .block(Block::new().borders(Borders::BOTTOM)),
                 title,
             );
