@@ -1,9 +1,9 @@
 //! Iced adapter behavior tests.
 
-use spectrum_core::{Color, Length, LengthUnit, Radius};
+use spectrum_core::{Color, Length, LengthUnit, Radius, ShadowLayer};
 use spectrum_iced::{
     IcedColorAdapter, IcedLengthAdapter, IcedLengthError, IcedRadiusAdapter, IcedRadiusError,
-    color, length, radius,
+    IcedShadowAdapter, IcedShadowError, color, length, radius, shadow,
 };
 
 #[test]
@@ -58,6 +58,46 @@ fn rejects_relative_radii_without_layout_context() {
     assert_eq!(
         value.radius(),
         Err(IcedRadiusError::UnsupportedUnit {
+            unit: LengthUnit::Rem
+        })
+    );
+}
+
+#[test]
+fn converts_px_shadows_to_iced_shadows() {
+    let px = |value| Length::new(value, LengthUnit::Px).expect("finite");
+    let value = ShadowLayer::new(
+        Color::new_rgba(1, 2, 3, 128),
+        px(4.0),
+        px(5.0),
+        px(6.0),
+        px(0.0),
+    )
+    .expect("shadow");
+    let expected = iced_core::Shadow {
+        color: iced_core::Color::from_rgba8(1, 2, 3, 128.0 / 255.0),
+        offset: iced_core::Vector::new(4.0, 5.0),
+        blur_radius: 6.0,
+    };
+
+    assert_eq!(value.shadow(), Ok(expected));
+    assert_eq!(shadow(value), Ok(expected));
+}
+
+#[test]
+fn rejects_shadow_lengths_with_relative_units() {
+    let px = |value| Length::new(value, LengthUnit::Px).expect("finite");
+    let value =
+        ShadowLayer::new(Color::new(0, 0, 0), px(0.0), px(0.0), px(4.0), px(1.0)).expect("shadow");
+    assert_eq!(value.shadow(), Err(IcedShadowError::UnsupportedSpread));
+
+    let rem = Length::new(1.0, LengthUnit::Rem).expect("finite");
+    let value =
+        ShadowLayer::new(Color::new(0, 0, 0), rem, px(0.0), px(4.0), px(0.0)).expect("shadow");
+    assert_eq!(
+        value.shadow(),
+        Err(IcedShadowError::UnsupportedUnit {
+            field: "offset_x",
             unit: LengthUnit::Rem
         })
     );

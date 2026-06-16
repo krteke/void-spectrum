@@ -22,3 +22,19 @@ pub enum IcedRadiusError {
         unit: LengthUnit,
     },
 }
+
+/// Describes why a Spectrum shadow cannot be represented by Iced shadows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum IcedShadowError {
+    /// Iced shadows use pixel units.
+    #[error("Iced shadow field '{field}' does not support '{unit}' units")]
+    UnsupportedUnit {
+        /// Shadow field that used an unsupported unit.
+        field: &'static str,
+        /// Unsupported Spectrum shadow unit.
+        unit: LengthUnit,
+    },
+    /// Iced shadows do not expose spread radius.
+    #[error("Iced shadow does not support non-zero spread")]
+    UnsupportedSpread,
+}

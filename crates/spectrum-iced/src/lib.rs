@@ -1,10 +1,10 @@
 //! Iced conversions for Void Spectrum core values.
 
-use spectrum_core::{Color, Length, LengthUnit, Radius};
+use spectrum_core::{Color, Length, LengthUnit, Radius, ShadowLayer};
 
 mod error;
 
-pub use error::{IcedLengthError, IcedRadiusError};
+pub use error::{IcedLengthError, IcedRadiusError, IcedShadowError};
 
 /// Converts a Spectrum color into an Iced color.
 pub trait IcedColorAdapter {
@@ -50,6 +50,30 @@ impl IcedRadiusAdapter for Radius {
     }
 }
 
+/// Converts a Spectrum shadow layer into an Iced shadow.
+pub trait IcedShadowAdapter {
+    /// Converts the shadow to an Iced shadow.
+    fn shadow(&self) -> Result<iced_core::Shadow, IcedShadowError>;
+}
+
+impl IcedShadowAdapter for ShadowLayer {
+    fn shadow(&self) -> Result<iced_core::Shadow, IcedShadowError> {
+        let offset_x = shadow_px("offset_x", self.offset_x())?;
+        let offset_y = shadow_px("offset_y", self.offset_y())?;
+        let blur_radius = shadow_px("blur", self.blur())?;
+        let spread = shadow_px("spread", self.spread())?;
+        if spread != 0.0 {
+            return Err(IcedShadowError::UnsupportedSpread);
+        }
+
+        Ok(iced_core::Shadow {
+            color: self.color().color(),
+            offset: iced_core::Vector::new(offset_x, offset_y),
+            blur_radius,
+        })
+    }
+}
+
 /// Converts a Spectrum color into an Iced color.
 #[must_use]
 pub fn color(value: Color) -> iced_core::Color {
@@ -66,6 +90,11 @@ pub fn radius(value: Radius) -> Result<iced_core::border::Radius, IcedRadiusErro
     value.radius()
 }
 
+/// Converts a Spectrum shadow layer into an Iced shadow.
+pub fn shadow(value: ShadowLayer) -> Result<iced_core::Shadow, IcedShadowError> {
+    value.shadow()
+}
+
 fn alpha(value: u8) -> f32 {
     if value == u8::MAX {
         1.0
@@ -73,5 +102,12 @@ fn alpha(value: u8) -> f32 {
         0.0
     } else {
         f32::from(value) / 255.0
+    }
+}
+
+fn shadow_px(field: &'static str, length: Length) -> Result<f32, IcedShadowError> {
+    match length.unit() {
+        LengthUnit::Px => Ok(length.value()),
+        unit => Err(IcedShadowError::UnsupportedUnit { field, unit }),
     }
 }
