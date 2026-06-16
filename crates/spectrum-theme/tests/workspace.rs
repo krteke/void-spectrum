@@ -15,3 +15,12 @@ fn facade_exports_ratatui_adapter() {
         "Rgb(1, 2, 3)"
     );
 }
+
+#[cfg(feature = "iced")]
+#[test]
+fn facade_exports_iced_adapter() {
+    assert_eq!(
+        format!("{:?}", spectrum_theme::iced::color(Color::new(1, 2, 3))),
+        "Color { r: 0.003921569, g: 0.007843138, b: 0.011764706, a: 1.0 }"
+    );
+}

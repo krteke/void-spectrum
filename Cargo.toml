@@ -3,6 +3,7 @@ members = [
     "crates/spectrum-core",
     "crates/spectrum-codegen",
     "crates/spectrum-export",
+    "crates/spectrum-iced",
     "crates/spectrum-macros",
     "crates/spectrum-palette",
     "crates/spectrum-ratatui",
@@ -25,6 +26,8 @@ repository = "https://github.com/krteke/void-spectrum"
 material-colors = { version = "0.4.2", default-features = false, features = [
     "std",
 ] }
+iced = { version = "0.14.0", default-features = false }
+iced_core = "0.14.0"
 palette = { version = "0.7.6", default-features = false, features = ["std"] }
 proc-macro2 = { version = "1.0.106", features = ["span-locations"] }
 proc-macro-crate = "3.5.0"
@@ -39,6 +42,7 @@ toml = "1.1.2"
 spectrum-core = { version = "0.1.0", path = "crates/spectrum-core" }
 spectrum-codegen = { version = "0.1.0", path = "crates/spectrum-codegen" }
 spectrum-export = { version = "0.1.0", path = "crates/spectrum-export" }
+spectrum-iced = { version = "0.1.0", path = "crates/spectrum-iced" }
 spectrum-macros = { version = "0.1.0", path = "crates/spectrum-macros" }
 spectrum-palette = { version = "0.1.0", path = "crates/spectrum-palette" }
 spectrum-ratatui = { version = "0.1.0", path = "crates/spectrum-ratatui" }

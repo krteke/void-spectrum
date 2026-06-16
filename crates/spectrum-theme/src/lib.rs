@@ -6,6 +6,8 @@ pub use spectrum_core::{
     RadiusParseError, Rgb, Rgba, ShadowError, ShadowLayer,
 };
 
+#[cfg(feature = "iced")]
+pub use spectrum_iced as iced;
 #[cfg(feature = "macros")]
 pub use spectrum_macros::define_theme_tokens;
 #[cfg(feature = "ratatui")]
