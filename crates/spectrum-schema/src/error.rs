@@ -1,125 +1,71 @@
-use core::fmt;
 use spectrum_core::{
     ColorParseError, FontStyleParseError, FontWeightParseError, LengthParseError,
     LineHeightParseError, RadiusParseError,
 };
+use thiserror::Error;
 
 /// Describes why a color value could not be parsed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum ColorValueParseError {
     /// The direct color is invalid.
-    InvalidColor(ColorParseError),
+    #[error(transparent)]
+    InvalidColor(#[from] ColorParseError),
     /// The token reference syntax is invalid.
+    #[error("invalid color token reference")]
     InvalidReference,
 }
-
-impl fmt::Display for ColorValueParseError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidColor(error) => error.fmt(formatter),
-            Self::InvalidReference => formatter.write_str("invalid color token reference"),
-        }
-    }
-}
-
-impl std::error::Error for ColorValueParseError {}
 
 /// Describes why a length token value could not be parsed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum LengthValueParseError {
     /// The direct length is invalid.
-    InvalidLength(LengthParseError),
+    #[error(transparent)]
+    InvalidLength(#[from] LengthParseError),
     /// The token reference syntax is invalid.
+    #[error("invalid length token reference")]
     InvalidReference,
 }
-
-impl fmt::Display for LengthValueParseError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidLength(error) => error.fmt(formatter),
-            Self::InvalidReference => formatter.write_str("invalid length token reference"),
-        }
-    }
-}
-
-impl std::error::Error for LengthValueParseError {}
 
 /// Describes why a radius token value could not be parsed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum RadiusValueParseError {
     /// The direct radius is invalid.
-    InvalidRadius(RadiusParseError),
+    #[error(transparent)]
+    InvalidRadius(#[from] RadiusParseError),
     /// The token reference syntax is invalid.
+    #[error("invalid radius token reference")]
     InvalidReference,
 }
-
-impl fmt::Display for RadiusValueParseError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidRadius(error) => error.fmt(formatter),
-            Self::InvalidReference => formatter.write_str("invalid radius token reference"),
-        }
-    }
-}
-
-impl std::error::Error for RadiusValueParseError {}
 
 /// Describes why a font-weight token value could not be parsed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum FontWeightValueParseError {
     /// The direct font weight is invalid.
-    InvalidFontWeight(FontWeightParseError),
+    #[error(transparent)]
+    InvalidFontWeight(#[from] FontWeightParseError),
     /// The token reference syntax is invalid.
+    #[error("invalid font-weight token reference")]
     InvalidReference,
 }
-
-impl fmt::Display for FontWeightValueParseError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidFontWeight(error) => error.fmt(formatter),
-            Self::InvalidReference => formatter.write_str("invalid font-weight token reference"),
-        }
-    }
-}
-
-impl std::error::Error for FontWeightValueParseError {}
 
 /// Describes why a font-style token value could not be parsed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum FontStyleValueParseError {
     /// The direct font style is invalid.
-    InvalidFontStyle(FontStyleParseError),
+    #[error(transparent)]
+    InvalidFontStyle(#[from] FontStyleParseError),
     /// The token reference syntax is invalid.
+    #[error("invalid font-style token reference")]
     InvalidReference,
 }
-
-impl fmt::Display for FontStyleValueParseError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidFontStyle(error) => error.fmt(formatter),
-            Self::InvalidReference => formatter.write_str("invalid font-style token reference"),
-        }
-    }
-}
-
-impl std::error::Error for FontStyleValueParseError {}
 
 /// Describes why a line-height token value could not be parsed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum LineHeightValueParseError {
     /// The direct line height is invalid.
-    InvalidLineHeight(LineHeightParseError),
+    #[error(transparent)]
+    InvalidLineHeight(#[from] LineHeightParseError),
     /// The token reference syntax is invalid.
+    #[error("invalid line-height token reference")]
     InvalidReference,
 }
-
-impl fmt::Display for LineHeightValueParseError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidLineHeight(error) => error.fmt(formatter),
-            Self::InvalidReference => formatter.write_str("invalid line-height token reference"),
-        }
-    }
-}
-
-impl std::error::Error for LineHeightValueParseError {}

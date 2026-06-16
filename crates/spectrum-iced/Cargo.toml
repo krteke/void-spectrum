@@ -13,9 +13,18 @@ default = []
 runtime = ["dep:iced"]
 
 [dependencies]
-iced = { workspace = true, optional = true }
+iced = { workspace = true, default-features = false, optional = true, features = [
+    "crisp",
+    "thread-pool",
+    "tiny-skia",
+    "wayland",
+    "web-colors",
+    "wgpu",
+    "x11",
+] }
 iced_core.workspace = true
 spectrum-core.workspace = true
+thiserror.workspace = true
 
 [[example]]
 name = "basic"

@@ -1,7 +1,10 @@
 //! Iced adapter behavior tests.
 
-use spectrum_core::{Color, Length, LengthUnit};
-use spectrum_iced::{IcedColorAdapter, IcedLengthAdapter, IcedLengthError, color, length};
+use spectrum_core::{Color, Length, LengthUnit, Radius};
+use spectrum_iced::{
+    IcedColorAdapter, IcedLengthAdapter, IcedLengthError, IcedRadiusAdapter, IcedRadiusError,
+    color, length, radius,
+};
 
 #[test]
 fn converts_rgb_colors_to_iced_rgba() {
@@ -34,6 +37,27 @@ fn rejects_relative_lengths_without_layout_context() {
     assert_eq!(
         value.length(),
         Err(IcedLengthError::UnsupportedUnit {
+            unit: LengthUnit::Rem
+        })
+    );
+}
+
+#[test]
+fn converts_px_radii_to_iced_border_radii() {
+    let value = Radius::new(Length::new(6.0, LengthUnit::Px).expect("finite")).expect("radius");
+    let expected = iced_core::border::Radius::new(6.0);
+
+    assert_eq!(value.radius(), Ok(expected));
+    assert_eq!(radius(value), Ok(expected));
+}
+
+#[test]
+fn rejects_relative_radii_without_layout_context() {
+    let value = Radius::new(Length::new(1.0, LengthUnit::Rem).expect("finite")).expect("radius");
+
+    assert_eq!(
+        value.radius(),
+        Err(IcedRadiusError::UnsupportedUnit {
             unit: LengthUnit::Rem
         })
     );

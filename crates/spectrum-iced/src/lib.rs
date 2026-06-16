@@ -1,11 +1,10 @@
 //! Iced conversions for Void Spectrum core values.
 
-use core::fmt;
-use spectrum_core::{Color, Length, LengthUnit};
+use spectrum_core::{Color, Length, LengthUnit, Radius};
 
 mod error;
 
-pub use error::IcedLengthError;
+pub use error::{IcedLengthError, IcedRadiusError};
 
 /// Converts a Spectrum color into an Iced color.
 pub trait IcedColorAdapter {
@@ -35,6 +34,22 @@ impl IcedLengthAdapter for Length {
     }
 }
 
+/// Converts a Spectrum radius into an Iced border radius.
+pub trait IcedRadiusAdapter {
+    /// Converts the radius to an Iced border radius.
+    fn radius(&self) -> Result<iced_core::border::Radius, IcedRadiusError>;
+}
+
+impl IcedRadiusAdapter for Radius {
+    fn radius(&self) -> Result<iced_core::border::Radius, IcedRadiusError> {
+        let length = self.length();
+        match length.unit() {
+            LengthUnit::Px => Ok(iced_core::border::Radius::new(length.value())),
+            unit => Err(IcedRadiusError::UnsupportedUnit { unit }),
+        }
+    }
+}
+
 /// Converts a Spectrum color into an Iced color.
 #[must_use]
 pub fn color(value: Color) -> iced_core::Color {
@@ -44,6 +59,11 @@ pub fn color(value: Color) -> iced_core::Color {
 /// Converts a Spectrum length into an Iced length.
 pub fn length(value: Length) -> Result<iced_core::Length, IcedLengthError> {
     value.length()
+}
+
+/// Converts a Spectrum radius into an Iced border radius.
+pub fn radius(value: Radius) -> Result<iced_core::border::Radius, IcedRadiusError> {
+    value.radius()
 }
 
 fn alpha(value: u8) -> f32 {

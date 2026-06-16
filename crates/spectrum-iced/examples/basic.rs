@@ -4,8 +4,8 @@ use iced::{
     Element, Fill,
     widget::{column, container, text},
 };
-use spectrum_core::{Color, Length, LengthUnit};
-use spectrum_iced::{IcedColorAdapter, IcedLengthAdapter};
+use spectrum_core::{Color, Length, LengthUnit, Radius};
+use spectrum_iced::{IcedColorAdapter, IcedLengthAdapter, IcedRadiusAdapter};
 
 fn main() -> iced::Result {
     iced::application(|| Demo, update, view).centered().run()
@@ -23,6 +23,10 @@ fn view(_: &Demo) -> Element<'_, ()> {
         .expect("finite")
         .length()
         .expect("px maps to Iced fixed length");
+    let radius = Radius::new(Length::new(14.0, LengthUnit::Px).expect("finite"))
+        .expect("non-negative")
+        .radius()
+        .expect("px maps to Iced radius");
 
     container(column![
         text("Void Spectrum Iced").size(34).color(title.color()),
@@ -31,6 +35,12 @@ fn view(_: &Demo) -> Element<'_, ()> {
             .color(body.color())
     ])
     .width(width)
+    .style(move |_| {
+        iced::widget::container::Style::default().border(iced::Border {
+            radius,
+            ..iced::Border::default()
+        })
+    })
     .padding(32)
     .center_x(Fill)
     .center_y(Fill)
