@@ -8,6 +8,8 @@ pub use spectrum_core::{
 
 #[cfg(feature = "macros")]
 pub use spectrum_macros::define_theme_tokens;
+#[cfg(feature = "ratatui")]
+pub use spectrum_ratatui as ratatui;
 
 /// Errors produced while constructing a generated typed theme.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]

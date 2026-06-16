@@ -21,12 +21,14 @@ toml = ["serde", "spectrum-schema/toml"]
 macros = ["dep:spectrum-macros"]
 export = ["dep:spectrum-export"]
 export-json = ["export", "spectrum-export/json"]
+ratatui = ["dep:spectrum-ratatui"]
 
 [dependencies]
 spectrum-core.workspace = true
 spectrum-export = { workspace = true, optional = true }
 spectrum-macros = { workspace = true, optional = true }
 spectrum-palette.workspace = true
+spectrum-ratatui = { workspace = true, optional = true }
 spectrum-resolver.workspace = true
 spectrum-schema.workspace = true
 thiserror.workspace = true
