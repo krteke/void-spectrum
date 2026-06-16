@@ -4,7 +4,7 @@ use spectrum_core::{Color, Length, LengthUnit, Radius, ShadowLayer};
 
 mod error;
 
-pub use error::{IcedLengthError, IcedRadiusError, IcedShadowError};
+pub use error::{IcedBorderError, IcedLengthError, IcedRadiusError, IcedShadowError};
 
 /// Converts a Spectrum color into an Iced color.
 pub trait IcedColorAdapter {
@@ -23,6 +23,10 @@ impl IcedColorAdapter for Color {
 pub trait IcedLengthAdapter {
     /// Converts the length to an Iced length.
     fn length(&self) -> Result<iced_core::Length, IcedLengthError>;
+
+    /// Treats the numeric value as pixels and converts it to an Iced fixed length.
+    #[must_use]
+    fn length_px(&self) -> iced_core::Length;
 }
 
 impl IcedLengthAdapter for Length {
@@ -32,12 +36,20 @@ impl IcedLengthAdapter for Length {
             unit => Err(IcedLengthError::UnsupportedUnit { unit }),
         }
     }
+
+    fn length_px(&self) -> iced_core::Length {
+        iced_core::Length::Fixed(self.value())
+    }
 }
 
 /// Converts a Spectrum radius into an Iced border radius.
 pub trait IcedRadiusAdapter {
     /// Converts the radius to an Iced border radius.
     fn radius(&self) -> Result<iced_core::border::Radius, IcedRadiusError>;
+
+    /// Treats the numeric value as pixels and converts it to an Iced border radius.
+    #[must_use]
+    fn radius_px(&self) -> iced_core::border::Radius;
 }
 
 impl IcedRadiusAdapter for Radius {
@@ -48,12 +60,51 @@ impl IcedRadiusAdapter for Radius {
             unit => Err(IcedRadiusError::UnsupportedUnit { unit }),
         }
     }
+
+    fn radius_px(&self) -> iced_core::border::Radius {
+        iced_core::border::Radius::new(self.length().value())
+    }
+}
+
+/// Converts Spectrum border inputs into an Iced border.
+pub trait IcedBorderAdapter {
+    /// Converts the color, width, and radius into an Iced border.
+    fn border(&self) -> Result<iced_core::border::Border, IcedBorderError>;
+
+    /// Treats width and radius numeric values as pixels and converts them to an Iced border.
+    #[must_use]
+    fn border_px(&self) -> iced_core::border::Border;
+}
+
+impl IcedBorderAdapter for (Color, Length, Radius) {
+    fn border(&self) -> Result<iced_core::border::Border, IcedBorderError> {
+        let width = border_px("width", self.1)?;
+        let radius = border_px("radius", self.2.length())?;
+
+        Ok(iced_core::border::Border {
+            color: self.0.color(),
+            width,
+            radius: iced_core::border::Radius::new(radius),
+        })
+    }
+
+    fn border_px(&self) -> iced_core::border::Border {
+        iced_core::border::Border {
+            color: self.0.color(),
+            width: self.1.value(),
+            radius: self.2.radius_px(),
+        }
+    }
 }
 
 /// Converts a Spectrum shadow layer into an Iced shadow.
 pub trait IcedShadowAdapter {
     /// Converts the shadow to an Iced shadow.
     fn shadow(&self) -> Result<iced_core::Shadow, IcedShadowError>;
+
+    /// Treats shadow numeric values as pixels and converts them to an Iced shadow.
+    #[must_use]
+    fn shadow_px(&self) -> iced_core::Shadow;
 }
 
 impl IcedShadowAdapter for ShadowLayer {
@@ -71,6 +122,14 @@ impl IcedShadowAdapter for ShadowLayer {
             offset: iced_core::Vector::new(offset_x, offset_y),
             blur_radius,
         })
+    }
+
+    fn shadow_px(&self) -> iced_core::Shadow {
+        iced_core::Shadow {
+            color: self.color().color(),
+            offset: iced_core::Vector::new(self.offset_x().value(), self.offset_y().value()),
+            blur_radius: self.blur().value(),
+        }
     }
 }
 
@@ -90,6 +149,15 @@ pub fn radius(value: Radius) -> Result<iced_core::border::Radius, IcedRadiusErro
     value.radius()
 }
 
+/// Converts Spectrum border inputs into an Iced border.
+pub fn border(
+    color: Color,
+    width: Length,
+    radius: Radius,
+) -> Result<iced_core::border::Border, IcedBorderError> {
+    (color, width, radius).border()
+}
+
 /// Converts a Spectrum shadow layer into an Iced shadow.
 pub fn shadow(value: ShadowLayer) -> Result<iced_core::Shadow, IcedShadowError> {
     value.shadow()
@@ -102,6 +170,13 @@ fn alpha(value: u8) -> f32 {
         0.0
     } else {
         f32::from(value) / 255.0
+    }
+}
+
+fn border_px(field: &'static str, length: Length) -> Result<f32, IcedBorderError> {
+    match length.unit() {
+        LengthUnit::Px => Ok(length.value()),
+        unit => Err(IcedBorderError::UnsupportedUnit { field, unit }),
     }
 }
 

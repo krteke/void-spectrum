@@ -5,7 +5,7 @@ use iced::{
     widget::{column, container, text},
 };
 use spectrum_core::{Color, Length, LengthUnit, Radius, ShadowLayer};
-use spectrum_iced::{IcedColorAdapter, IcedLengthAdapter, IcedRadiusAdapter, IcedShadowAdapter};
+use spectrum_iced::{IcedBorderAdapter, IcedColorAdapter, IcedLengthAdapter, IcedShadowAdapter};
 
 fn main() -> iced::Result {
     iced::application(|| Demo, update, view).centered().run()
@@ -19,14 +19,15 @@ fn update(_: &mut Demo, _: ()) {}
 fn view(_: &Demo) -> Element<'_, ()> {
     let title = Color::new(125, 92, 255);
     let body = Color::new(232, 238, 247);
-    let width = Length::new(520.0, LengthUnit::Px)
+    let panel_width = Length::new(520.0, LengthUnit::Px)
         .expect("finite")
-        .length()
-        .expect("px maps to Iced fixed length");
-    let radius = Radius::new(Length::new(14.0, LengthUnit::Px).expect("finite"))
-        .expect("non-negative")
-        .radius()
-        .expect("px maps to Iced radius");
+        .length_px();
+    let border = (
+        Color::new_rgba(125, 92, 255, 120),
+        Length::new(1.0, LengthUnit::Px).expect("finite"),
+        Radius::new(Length::new(14.0, LengthUnit::Px).expect("finite")).expect("non-negative"),
+    )
+        .border_px();
     let shadow = ShadowLayer::new(
         Color::new_rgba(0, 0, 0, 96),
         Length::new(0.0, LengthUnit::Px).expect("finite"),
@@ -35,8 +36,7 @@ fn view(_: &Demo) -> Element<'_, ()> {
         Length::new(0.0, LengthUnit::Px).expect("finite"),
     )
     .expect("valid shadow")
-    .shadow()
-    .expect("px shadow maps to Iced shadow");
+    .shadow_px();
 
     container(column![
         text("Void Spectrum Iced").size(34).color(title.color()),
@@ -44,13 +44,10 @@ fn view(_: &Demo) -> Element<'_, ()> {
             .size(18)
             .color(body.color())
     ])
-    .width(width)
+    .width(panel_width)
     .style(move |_| {
         iced::widget::container::Style::default()
-            .border(iced::Border {
-                radius,
-                ..iced::Border::default()
-            })
+            .border(border)
             .shadow(shadow)
     })
     .padding(32)

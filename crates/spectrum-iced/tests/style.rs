@@ -2,8 +2,9 @@
 
 use spectrum_core::{Color, Length, LengthUnit, Radius, ShadowLayer};
 use spectrum_iced::{
-    IcedColorAdapter, IcedLengthAdapter, IcedLengthError, IcedRadiusAdapter, IcedRadiusError,
-    IcedShadowAdapter, IcedShadowError, color, length, radius, shadow,
+    IcedBorderAdapter, IcedBorderError, IcedColorAdapter, IcedLengthAdapter, IcedLengthError,
+    IcedRadiusAdapter, IcedRadiusError, IcedShadowAdapter, IcedShadowError, border, color, length,
+    radius, shadow,
 };
 
 #[test]
@@ -43,6 +44,13 @@ fn rejects_relative_lengths_without_layout_context() {
 }
 
 #[test]
+fn lossy_length_px_treats_any_unit_as_fixed_pixels() {
+    let value = Length::new(1.5, LengthUnit::Rem).expect("finite");
+
+    assert_eq!(value.length_px(), iced_core::Length::Fixed(1.5));
+}
+
+#[test]
 fn converts_px_radii_to_iced_border_radii() {
     let value = Radius::new(Length::new(6.0, LengthUnit::Px).expect("finite")).expect("radius");
     let expected = iced_core::border::Radius::new(6.0);
@@ -58,6 +66,69 @@ fn rejects_relative_radii_without_layout_context() {
     assert_eq!(
         value.radius(),
         Err(IcedRadiusError::UnsupportedUnit {
+            unit: LengthUnit::Rem
+        })
+    );
+}
+
+#[test]
+fn lossy_radius_px_treats_any_unit_as_pixels() {
+    let value = Radius::new(Length::new(1.0, LengthUnit::Rem).expect("finite")).expect("radius");
+
+    assert_eq!(value.radius_px(), iced_core::border::Radius::new(1.0));
+}
+
+#[test]
+fn converts_px_border_inputs_to_iced_borders() {
+    let color = Color::new(1, 2, 3);
+    let width = Length::new(2.0, LengthUnit::Px).expect("finite");
+    let radius = Radius::new(Length::new(6.0, LengthUnit::Px).expect("finite")).expect("radius");
+    let expected = iced_core::border::Border {
+        color: iced_core::Color::from_rgba8(1, 2, 3, 1.0),
+        width: 2.0,
+        radius: iced_core::border::Radius::new(6.0),
+    };
+
+    assert_eq!((color, width, radius).border(), Ok(expected));
+    assert_eq!(border(color, width, radius), Ok(expected));
+}
+
+#[test]
+fn lossy_border_px_treats_any_unit_as_pixels() {
+    let color = Color::new(1, 2, 3);
+    let width = Length::new(2.0, LengthUnit::Rem).expect("finite");
+    let radius =
+        Radius::new(Length::new(6.0, LengthUnit::Percent).expect("finite")).expect("radius");
+
+    assert_eq!(
+        (color, width, radius).border_px(),
+        iced_core::border::Border {
+            color: iced_core::Color::from_rgba8(1, 2, 3, 1.0),
+            width: 2.0,
+            radius: iced_core::border::Radius::new(6.0),
+        }
+    );
+}
+
+#[test]
+fn rejects_border_inputs_with_relative_units() {
+    let color = Color::new(1, 2, 3);
+    let px = Length::new(1.0, LengthUnit::Px).expect("finite");
+    let rem = Length::new(1.0, LengthUnit::Rem).expect("finite");
+    let radius = Radius::new(px).expect("radius");
+    assert_eq!(
+        (color, rem, radius).border(),
+        Err(IcedBorderError::UnsupportedUnit {
+            field: "width",
+            unit: LengthUnit::Rem
+        })
+    );
+
+    let radius = Radius::new(rem).expect("radius");
+    assert_eq!(
+        (color, px, radius).border(),
+        Err(IcedBorderError::UnsupportedUnit {
+            field: "radius",
             unit: LengthUnit::Rem
         })
     );
@@ -100,5 +171,27 @@ fn rejects_shadow_lengths_with_relative_units() {
             field: "offset_x",
             unit: LengthUnit::Rem
         })
+    );
+}
+
+#[test]
+fn lossy_shadow_px_treats_any_unit_as_pixels_and_ignores_spread() {
+    let rem = |value| Length::new(value, LengthUnit::Rem).expect("finite");
+    let value = ShadowLayer::new(
+        Color::new_rgba(1, 2, 3, 128),
+        rem(4.0),
+        rem(5.0),
+        rem(6.0),
+        rem(7.0),
+    )
+    .expect("shadow");
+
+    assert_eq!(
+        value.shadow_px(),
+        iced_core::Shadow {
+            color: iced_core::Color::from_rgba8(1, 2, 3, 128.0 / 255.0),
+            offset: iced_core::Vector::new(4.0, 5.0),
+            blur_radius: 6.0,
+        }
     );
 }
