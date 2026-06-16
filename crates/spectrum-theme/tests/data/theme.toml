@@ -6,6 +6,7 @@ mode = "light"
 
 [colors]
 "editor.cursor" = "{material.primary}"
+"editor.background" = "{material.surface}"
 "editor.selection.background" = "#102030"
 "editor.selection.foreground" = "{editor.selection.background}"
 "overlay.scrim" = "#10203080"

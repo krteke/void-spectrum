@@ -10,29 +10,31 @@ Void Spectrum is a workspace for a typed theme-token engine written in Rust.
 | `spectrum-schema` | Serializable theme specification and configuration formats |
 | `spectrum-palette` | Seed-color and tonal-palette generation boundary |
 | `spectrum-resolver` | Merge, reference resolution, validation, and error reporting |
-| `spectrum-macros` | Compile-time typed token generation |
+| `spectrum-codegen` | Build-time typed token code generation |
+| `spectrum-macros` | Inline typed token contract generation |
 | `spectrum-export` | Platform-neutral export infrastructure |
 | `spectrum-theme` | Public facade and feature coordination |
 
-## Theme Macros
+## Typed Theme Generation
 
 `define_theme_tokens!` defines a typed contract that can be populated from a
-theme loaded at runtime. `include_theme_tokens!` reads and embeds a static TOML
-theme at compile time:
+theme loaded at runtime. For static TOML themes, generate Rust code in
+`build.rs` so rust-analyzer can inspect the emitted structs and fields through
+Cargo's build-script output:
 
 ```rust
-include_theme_tokens! {
-    pub struct AppTheme;
-    source = "themes/app.toml";
-    format = toml;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    spectrum_codegen::ThemeCodegen::new("themes/app.toml", "AppTheme")
+        .generate()?;
+    Ok(())
 }
 ```
 
-> **Known rust-analyzer false positive:** rust-analyzer may report
-> `No such file or directory (os error 2)` on the `source` string even when the
-> path is valid. The path is resolved relative to the Rust source file that
-> invokes the macro. Use `cargo check` or `cargo build` as the authoritative
-> result; this editor diagnostic does not prevent the theme from being embedded.
+Then include the generated source from Rust code:
+
+```rust
+include!(concat!(env!("OUT_DIR"), "/theme_tokens.rs"));
+```
 
 ## Development
 

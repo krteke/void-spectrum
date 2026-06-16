@@ -14,7 +14,7 @@ use spectrum_theme::{
         RadiusSource, ShadowSource, TokenSource,
     },
     Color, FontStyle, FontWeight, Length, LengthUnit, LineHeight, Radius, ShadowLayer,
-    ThemeBuildError, define_theme_tokens, include_theme_tokens,
+    ThemeBuildError, define_theme_tokens,
 };
 
 define_theme_tokens! {
@@ -86,11 +86,7 @@ define_theme_tokens! {
     }
 }
 
-include_theme_tokens! {
-    pub struct FileTheme;
-    source = "data/theme.toml";
-    format = toml;
-}
+include!(concat!(env!("OUT_DIR"), "/theme_tokens.rs"));
 
 struct StaticSource;
 
@@ -258,7 +254,8 @@ fn builds_material_bindings_from_resolved_themes() {
             .with_line_height("line_height.body", "1.75".parse().expect("line height")),
     )
     .expect("resolved");
-    let theme = AppTheme::try_from_source(&resolved).expect("typed theme");
+    let mut theme = AppTheme::try_from_source(&resolved).expect("typed theme");
+    theme.reload(&resolved).expect("reload");
 
     assert_ne!(theme.editor.cursor, Color::new(0, 0, 255));
     assert_eq!(theme.radius.card.to_string(), "6px");
@@ -293,6 +290,23 @@ fn file_contract_loads_embedded_values_and_supports_seed_override() {
     assert_eq!(red.editor.font_style, FontStyle::Italic);
     assert_eq!(blue.line_height.body.to_string(), "1.5");
     assert_eq!(red.editor.line_height.to_string(), "20px");
+}
+
+#[cfg(feature = "seed")]
+#[test]
+fn updates_all_material_fields_from_one_runtime_seed() {
+    let mut theme = FileTheme::try_load().expect("embedded theme");
+    let original_cursor = theme.editor.cursor;
+    let original_background = theme.editor.background;
+    let fixed_selection = theme.editor.selection.background;
+
+    theme
+        .try_set_seed(Color::new(255, 0, 0))
+        .expect("updated seed");
+
+    assert_ne!(theme.editor.cursor, original_cursor);
+    assert_ne!(theme.editor.background, original_background);
+    assert_eq!(theme.editor.selection.background, fixed_selection);
 }
 
 #[cfg(feature = "seed")]
@@ -392,6 +406,6 @@ fn typed_build_requires_seed_for_material_bindings() {
 fn embedded_material_bindings_report_the_missing_feature() {
     assert!(matches!(
         FileTheme::try_load(),
-        Err(ThemeBuildError::SeedFeatureDisabled { path }) if path == "editor.cursor"
+        Err(ThemeBuildError::SeedFeatureDisabled { path }) if path == "editor.background"
     ));
 }

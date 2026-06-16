@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/spectrum-core",
+    "crates/spectrum-codegen",
     "crates/spectrum-export",
     "crates/spectrum-macros",
     "crates/spectrum-palette",
@@ -32,9 +33,9 @@ serde_json = "1.0.150"
 syn = { version = "2.0.117", features = ["full"] }
 thiserror = "2.0.18"
 toml = "1.1.2"
-trybuild = "1.0.116"
 
 spectrum-core = { version = "0.1.0", path = "crates/spectrum-core" }
+spectrum-codegen = { version = "0.1.0", path = "crates/spectrum-codegen" }
 spectrum-export = { version = "0.1.0", path = "crates/spectrum-export" }
 spectrum-macros = { version = "0.1.0", path = "crates/spectrum-macros" }
 spectrum-palette = { version = "0.1.0", path = "crates/spectrum-palette" }

@@ -29,6 +29,4 @@ Selection requires:
 ## Deferred dependencies
 
 Ratatui, egui, iced, syntect, and CSS helper dependencies are not introduced
-until their adapter crates and conversion contracts are implemented. Compile
-test tooling such as `trybuild` is also deferred until the first macro syntax
-exists.
+until their adapter crates and conversion contracts are implemented.

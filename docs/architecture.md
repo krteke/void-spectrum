@@ -12,10 +12,13 @@ spectrum-schema     spectrum-palette
     +--- spectrum-resolver
               ^
               |
-        spectrum-theme
+        spectrum-codegen
+              |
+              v
+        build.rs output ---> spectrum-theme
 
 spectrum-core <- spectrum-export <- spectrum-theme
-spectrum-macros -------------------> spectrum-theme
+spectrum-codegen <- spectrum-macros -------------------> spectrum-theme
 ```
 
 The dependency graph must remain acyclic. `spectrum-core` is the lowest-level
@@ -47,11 +50,18 @@ workspace.
 Owns precedence, merging, reference expansion, cycle detection, type checking,
 and contract validation. Its output is a complete `spectrum-core` theme.
 
+### `spectrum-codegen`
+
+Owns build-time Rust source generation for typed token contracts. It parses and
+resolves static theme files in build scripts and emits ordinary Rust source that
+consuming crates include from `OUT_DIR`, keeping IDE diagnostics and completion
+aware of generated token fields.
+
 ### `spectrum-macros`
 
-Owns procedural macros that generate typed token structures and contract
-metadata. Macro syntax is intentionally deferred until the token contract is
-specified by tests.
+Owns procedural macros for inline typed token contracts. File-driven generation
+belongs in `spectrum-codegen` so macro expansion does not hide file contents
+from rust-analyzer.
 
 ### `spectrum-export`
 

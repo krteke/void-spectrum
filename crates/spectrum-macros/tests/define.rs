@@ -46,13 +46,13 @@ fn spacing(theme: &AppTheme) -> u16 {
 #[test]
 fn generates_nested_typed_fields() {
     let theme = AppTheme {
-        color: AppThemeColorTokens {
-            text: AppThemeColorTextTokens {
+        color: AppThemeColor {
+            text: AppThemeColorText {
                 primary: Color,
                 muted: Color,
             },
         },
-        spacing: AppThemeSpacingTokens { medium: Px(8) },
+        spacing: AppThemeSpacing { medium: Px(8) },
     };
 
     let _ = primary(&theme);

@@ -18,7 +18,7 @@ seed = ["spectrum-palette/seed"]
 serde = ["spectrum-core/serde"]
 json = ["serde", "spectrum-schema/json"]
 toml = ["serde", "spectrum-schema/toml"]
-macros = ["dep:spectrum-macros", "dep:thiserror"]
+macros = ["dep:spectrum-macros"]
 export = ["dep:spectrum-export"]
 export-json = ["export", "spectrum-export/json"]
 
@@ -29,10 +29,10 @@ spectrum-macros = { workspace = true, optional = true }
 spectrum-palette.workspace = true
 spectrum-resolver.workspace = true
 spectrum-schema.workspace = true
-thiserror = { workspace = true, optional = true }
+thiserror.workspace = true
 
-[dev-dependencies]
-trybuild.workspace = true
+[build-dependencies]
+spectrum-codegen.workspace = true
 
 [lints]
 workspace = true

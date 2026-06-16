@@ -7,10 +7,9 @@ pub use spectrum_core::{
 };
 
 #[cfg(feature = "macros")]
-pub use spectrum_macros::{define_theme_tokens, include_theme_tokens};
+pub use spectrum_macros::define_theme_tokens;
 
 /// Errors produced while constructing a generated typed theme.
-#[cfg(feature = "macros")]
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ThemeBuildError {
     /// The generated contract requires a token absent from the source.
@@ -33,19 +32,38 @@ pub enum ThemeBuildError {
     },
 }
 
-#[cfg(feature = "macros")]
 #[doc(hidden)]
 pub mod __private {
     use super::{
         Color, FontStyle, FontWeight, Length, LineHeight, Radius, ShadowLayer, ThemeBuildError,
     };
 
-    pub use spectrum_palette::MaterialColor;
+    pub use spectrum_palette::{MaterialColor, MaterialColors};
     pub use spectrum_resolver::{ColorBinding, ResolvedTheme};
     pub use spectrum_schema::{ThemeMeta, ThemeMode};
 
     pub trait TokenSource {
         type Error;
+    }
+
+    #[cfg(feature = "seed")]
+    pub fn material_colors(
+        seed: Color,
+        mode: ThemeMode,
+        _: &str,
+    ) -> Result<MaterialColors, ThemeBuildError> {
+        Ok(spectrum_palette::material_colors(seed, mode))
+    }
+
+    #[cfg(not(feature = "seed"))]
+    pub fn material_colors(
+        _: Color,
+        _: ThemeMode,
+        path: &str,
+    ) -> Result<MaterialColors, ThemeBuildError> {
+        Err(ThemeBuildError::SeedFeatureDisabled {
+            path: path.to_owned(),
+        })
     }
 
     pub trait ColorSource: TokenSource {
