@@ -8,12 +8,18 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+runtime = ["dep:iced"]
+
 [dependencies]
+iced = { workspace = true, optional = true }
 iced_core.workspace = true
 spectrum-core.workspace = true
 
-[dev-dependencies]
-iced.workspace = true
+[[example]]
+name = "basic"
+required-features = ["runtime"]
 
 [lints]
 workspace = true

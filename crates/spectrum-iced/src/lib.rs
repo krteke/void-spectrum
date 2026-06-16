@@ -1,6 +1,11 @@
 //! Iced conversions for Void Spectrum core values.
 
-use spectrum_core::Color;
+use core::fmt;
+use spectrum_core::{Color, Length, LengthUnit};
+
+mod error;
+
+pub use error::IcedLengthError;
 
 /// Converts a Spectrum color into an Iced color.
 pub trait IcedColorAdapter {
@@ -15,10 +20,30 @@ impl IcedColorAdapter for Color {
     }
 }
 
+/// Converts a Spectrum length into an Iced length.
+pub trait IcedLengthAdapter {
+    /// Converts the length to an Iced length.
+    fn length(&self) -> Result<iced_core::Length, IcedLengthError>;
+}
+
+impl IcedLengthAdapter for Length {
+    fn length(&self) -> Result<iced_core::Length, IcedLengthError> {
+        match self.unit() {
+            LengthUnit::Px => Ok(iced_core::Length::Fixed(self.value())),
+            unit => Err(IcedLengthError::UnsupportedUnit { unit }),
+        }
+    }
+}
+
 /// Converts a Spectrum color into an Iced color.
 #[must_use]
 pub fn color(value: Color) -> iced_core::Color {
     value.color()
+}
+
+/// Converts a Spectrum length into an Iced length.
+pub fn length(value: Length) -> Result<iced_core::Length, IcedLengthError> {
+    value.length()
 }
 
 fn alpha(value: u8) -> f32 {
