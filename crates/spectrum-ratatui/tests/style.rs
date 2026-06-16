@@ -1,8 +1,8 @@
 //! Ratatui adapter behavior tests.
 
-use ratatui::style::{Color as RatatuiColor, Style};
-use spectrum_core::Color;
-use spectrum_ratatui::{RatatuiColorAdapter, RatatuiStyleAdapter, style};
+use ratatui::style::{Color as RatatuiColor, Modifier, Style};
+use spectrum_core::{Color, FontStyle, FontWeight};
+use spectrum_ratatui::{RatatuiColorAdapter, RatatuiModifierAdapter, RatatuiStyleAdapter, style};
 
 #[test]
 fn converts_rgb_colors_to_ratatui_rgb() {
@@ -33,5 +33,26 @@ fn builds_styles_from_optional_colors() {
     assert_eq!(
         style(Some(Color::new(1, 2, 3)), Some(Color::new(4, 5, 6))),
         expected
+    );
+}
+
+#[test]
+fn maps_font_weight_to_bold_modifier() {
+    assert_eq!(FontWeight::MEDIUM.modifier(), Modifier::empty());
+    assert_eq!(FontWeight::SEMI_BOLD.modifier(), Modifier::BOLD);
+}
+
+#[test]
+fn maps_font_style_to_italic_modifier() {
+    assert_eq!(FontStyle::Normal.modifier(), Modifier::empty());
+    assert_eq!(FontStyle::Italic.modifier(), Modifier::ITALIC);
+    assert_eq!(FontStyle::Oblique.modifier(), Modifier::ITALIC);
+}
+
+#[test]
+fn combines_font_weight_and_style_modifiers() {
+    assert_eq!(
+        (FontWeight::BOLD, FontStyle::Italic).modifier(),
+        Modifier::BOLD | Modifier::ITALIC
     );
 }

@@ -1,10 +1,5 @@
 //! Visual Ratatui adapter demo.
 
-// use crossterm::{
-//     event::{self, Event, KeyCode},
-//     execute,
-//     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
-// };
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
@@ -14,11 +9,10 @@ use ratatui::{
         terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     },
     layout::{Constraint, Layout},
-    style::Modifier,
     widgets::{Block, Borders, Paragraph},
 };
-use spectrum_core::Color;
-use spectrum_ratatui::RatatuiStyleAdapter;
+use spectrum_core::{Color, FontStyle, FontWeight};
+use spectrum_ratatui::{RatatuiModifierAdapter, RatatuiStyleAdapter};
 use std::{io, time::Duration};
 
 fn main() -> io::Result<()> {
@@ -41,6 +35,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> 
     let fg = Color::new(232, 238, 247);
     let accent = Color::new(125, 92, 255);
     let muted = Color::new(142, 151, 170);
+    let title_modifier = (FontWeight::BOLD, FontStyle::Italic).modifier();
 
     loop {
         terminal.draw(|frame| {
@@ -60,7 +55,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> 
                     .style(
                         (Some(accent), Some(bg))
                             .style()
-                            .add_modifier(Modifier::BOLD),
+                            .add_modifier(title_modifier),
                     )
                     .block(Block::new().borders(Borders::BOTTOM)),
                 title,
