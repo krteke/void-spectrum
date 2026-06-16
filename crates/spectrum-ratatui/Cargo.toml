@@ -12,5 +12,8 @@ repository.workspace = true
 ratatui.workspace = true
 spectrum-core.workspace = true
 
+[dev-dependencies]
+ratatui = { workspace = true, features = ["crossterm"] }
+
 [lints]
 workspace = true
