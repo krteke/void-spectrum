@@ -2728,14 +2728,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spectrum-export"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "spectrum-core",
-]
-
-[[package]]
 name = "spectrum-iced"
 version = "0.1.0"
 dependencies = [
@@ -2800,7 +2792,6 @@ version = "0.1.0"
 dependencies = [
  "spectrum-codegen",
  "spectrum-core",
- "spectrum-export",
  "spectrum-iced",
  "spectrum-macros",
  "spectrum-palette",

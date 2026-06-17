@@ -2,7 +2,6 @@
 members = [
     "crates/spectrum-core",
     "crates/spectrum-codegen",
-    "crates/spectrum-export",
     "crates/spectrum-iced",
     "crates/spectrum-macros",
     "crates/spectrum-palette",
@@ -41,7 +40,6 @@ toml = "1.1.2"
 
 spectrum-core = { version = "0.1.0", path = "crates/spectrum-core" }
 spectrum-codegen = { version = "0.1.0", path = "crates/spectrum-codegen" }
-spectrum-export = { version = "0.1.0", path = "crates/spectrum-export" }
 spectrum-iced = { version = "0.1.0", path = "crates/spectrum-iced" }
 spectrum-macros = { version = "0.1.0", path = "crates/spectrum-macros" }
 spectrum-palette = { version = "0.1.0", path = "crates/spectrum-palette" }

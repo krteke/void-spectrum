@@ -13,20 +13,23 @@ workspace manifest.
 | `quote` | Procedural macro output | Include in macro crate |
 | `syn` | Procedural macro input parsing | Include in macro crate |
 | `palette` | Color-space conversion primitives | Optional feature |
+| `material-colors` | Material color roles from a Seed color | Optional `seed` feature |
+| `ratatui` | Terminal UI adapter target | Adapter crate dependency |
+| `iced_core` | Formal Iced conversion target | Adapter crate dependency |
+| `iced` | Visual Iced example runtime | Optional adapter feature |
 
 ## Seed color algorithm
 
-The `palette` crate provides general color-space types and conversions, but it
-does not by itself guarantee Material 3 HCT and tonal-palette compatibility.
-No Material Color Utilities implementation is selected in this skeleton.
-Selection requires:
+The `palette` crate remains available for general color-space conversions. The
+Seed-to-Material-role path currently uses `material-colors` behind the optional
+`seed` feature. Any replacement must satisfy:
 
 1. Algorithm compatibility tests against published Material reference values.
-2. A Rust 1.85 compatible release.
+2. A Rust 1.88 compatible release.
 3. Acceptable maintenance, license, and dependency footprint.
 4. Deterministic output suitable for snapshot and contract tests.
 
 ## Deferred dependencies
 
-Ratatui, egui, iced, syntect, and CSS helper dependencies are not introduced
-until their adapter crates and conversion contracts are implemented.
+egui, syntect, CSS helper dependencies, and Design Tokens export dependencies
+are deferred until their adapter or export contracts are implemented.

@@ -17,8 +17,9 @@ spectrum-schema     spectrum-palette
               v
         build.rs output ---> spectrum-theme
 
-spectrum-core <- spectrum-export <- spectrum-theme
 spectrum-codegen <- spectrum-macros -------------------> spectrum-theme
+spectrum-core <- spectrum-ratatui <- spectrum-theme
+spectrum-core <- spectrum-iced ----^
 ```
 
 The dependency graph must remain acyclic. `spectrum-core` is the lowest-level
@@ -41,9 +42,9 @@ resolver supplies defaults and derived values.
 
 ### `spectrum-palette`
 
-Owns the Seed Color to tonal palette boundary. The Material 3 HCT algorithm is
-not selected yet; this crate isolates that decision from the rest of the
-workspace.
+Owns the Seed Color to tonal palette boundary. The `seed` feature uses
+`material-colors` to produce Material-style roles while keeping the algorithm
+dependency outside `spectrum-core`.
 
 ### `spectrum-resolver`
 
@@ -63,19 +64,24 @@ Owns procedural macros for inline typed token contracts. File-driven generation
 belongs in `spectrum-codegen` so macro expansion does not hide file contents
 from rust-analyzer.
 
-### `spectrum-export`
-
-Owns export-oriented intermediate APIs. Concrete CSS and Design Tokens JSON
-output can be implemented here without introducing GUI dependencies.
-
 ### `spectrum-theme`
 
 Provides the user-facing facade and coordinates optional features. It should
 contain little behavior of its own.
 
-## Deferred adapter crates
+### `spectrum-ratatui`
 
-Adapters will use focused crate names such as `spectrum-css`,
-`spectrum-ratatui`, `spectrum-egui`, `spectrum-iced`, and
-`spectrum-syntect`. They are deferred because adding them now would lock
-framework versions before adapter contracts exist.
+Owns Ratatui conversions for core values. It exposes adapter traits and keeps
+terminal-specific choices out of `spectrum-core`.
+
+### `spectrum-iced`
+
+Owns Iced conversions for core values. The crate depends on `iced_core` for
+formal conversions and gates the full visual example behind its `runtime`
+feature.
+
+## Deferred adapters and exports
+
+CSS, Design Tokens JSON, egui, syntect, and other platform outputs are not part
+of `0.1.0`. They should be added as focused crates or features only after their
+conversion contracts are concrete.

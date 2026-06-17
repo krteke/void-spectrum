@@ -12,21 +12,17 @@ keywords = ["theme", "color", "design-tokens", "palette"]
 categories = ["config", "gui"]
 
 [features]
-default = ["builtin", "seed"]
-builtin = []
+default = ["seed"]
 seed = ["spectrum-palette/seed"]
 serde = ["spectrum-core/serde"]
 json = ["serde", "spectrum-schema/json"]
 toml = ["serde", "spectrum-schema/toml"]
 macros = ["dep:spectrum-macros"]
-export = ["dep:spectrum-export"]
-export-json = ["export", "spectrum-export/json"]
 iced = ["dep:spectrum-iced"]
 ratatui = ["dep:spectrum-ratatui"]
 
 [dependencies]
 spectrum-core.workspace = true
-spectrum-export = { workspace = true, optional = true }
 spectrum-iced = { workspace = true, optional = true }
 spectrum-macros = { workspace = true, optional = true }
 spectrum-palette.workspace = true

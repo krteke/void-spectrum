@@ -12,8 +12,22 @@ Void Spectrum is a workspace for a typed theme-token engine written in Rust.
 | `spectrum-resolver` | Merge, reference resolution, validation, and error reporting |
 | `spectrum-codegen` | Build-time typed token code generation |
 | `spectrum-macros` | Inline typed token contract generation |
-| `spectrum-export` | Platform-neutral export infrastructure |
+| `spectrum-ratatui` | Ratatui adapter traits and a visual terminal example |
+| `spectrum-iced` | Iced adapter traits and a visual GUI example |
 | `spectrum-theme` | Public facade and feature coordination |
+
+## Facade features
+
+`spectrum-theme` enables Seed-based Material color generation by default.
+Optional features expose focused APIs:
+
+| Feature | Enables |
+| --- | --- |
+| `macros` | `define_theme_tokens!` |
+| `toml` | TOML schema loading support |
+| `json` | JSON schema loading support |
+| `ratatui` | `spectrum_theme::ratatui` adapter re-export |
+| `iced` | `spectrum_theme::iced` adapter re-export |
 
 ## Typed Theme Generation
 
