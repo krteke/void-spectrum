@@ -1,5 +1,5 @@
 [package]
-name = "spectrum-macros"
+name = "void-spectrum-macros"
 description = "Typed token procedural macros for Void Spectrum"
 version.workspace = true
 edition.workspace = true
@@ -9,6 +9,7 @@ license.workspace = true
 repository.workspace = true
 
 [lib]
+name = "spectrum_macros"
 proc-macro = true
 
 [dependencies]

@@ -41,7 +41,7 @@ toml = "1.1.2"
 spectrum-core = { version = "0.1.0", path = "crates/spectrum-core" }
 spectrum-codegen = { version = "0.1.0", path = "crates/spectrum-codegen" }
 spectrum-iced = { version = "0.1.0", path = "crates/spectrum-iced" }
-spectrum-macros = { version = "0.1.0", path = "crates/spectrum-macros" }
+spectrum-macros = { package = "void-spectrum-macros", version = "0.1.0", path = "crates/spectrum-macros" }
 spectrum-palette = { version = "0.1.0", path = "crates/spectrum-palette" }
 spectrum-ratatui = { version = "0.1.0", path = "crates/spectrum-ratatui" }
 spectrum-resolver = { version = "0.1.0", path = "crates/spectrum-resolver" }
