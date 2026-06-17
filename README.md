@@ -1,5 +1,7 @@
 # Void Spectrum
 
+[中文](README_ZH.md)
+
 Void Spectrum is a workspace for a typed theme-token engine written in Rust.
 
 ## Workspace
@@ -59,5 +61,5 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo doc --workspace --no-deps
 ```
 
-See [Architecture](docs/architecture.md) for dependency direction and
-[Dependencies](docs/dependencies.md) for the initial dependency assessment.
+See [Architecture](docs/architecture.md) for dependency direction,
+[Dependencies](docs/dependencies.md) for the initial dependency assessment and [Usage](docs/usage.md) for basic usage.
