@@ -11,7 +11,8 @@ use std::{
     path::{Path, PathBuf},
 };
 use syn::{
-    Ident, LitStr, Result as SynResult, Type, Visibility, braced, parse::Parse, parse::ParseStream,
+    Attribute, Ident, LitStr, Result as SynResult, Type, Visibility, braced,
+    parse::{Parse, ParseStream},
 };
 
 mod error;
@@ -100,13 +101,13 @@ impl ThemeCodegen {
             .map_err(CodegenError::InvalidContract)?;
         let resolved = resolve_theme_file(&self.source_path)?;
         let tokens = tokens_from_theme(&resolved, Span::call_site(), &facade)?;
-        let schema = ThemeSchema(visibility, name, tokens);
+        let schema = ThemeSchema(Vec::new(), visibility, name, tokens);
         Ok(expand_schema(schema, Some(resolved), &facade).to_string())
     }
 }
 
 /// Parsed schema for an inline typed token contract.
-pub struct ThemeSchema(Visibility, Ident, Vec<Token>);
+pub struct ThemeSchema(Vec<Attribute>, Visibility, Ident, Vec<Token>);
 
 enum Token {
     Value(Ident, Box<Type>),
@@ -115,12 +116,13 @@ enum Token {
 
 impl Parse for ThemeSchema {
     fn parse(input: ParseStream<'_>) -> SynResult<Self> {
+        let attrs = input.call(Attribute::parse_outer)?;
         let visibility = input.parse()?;
         input.parse::<syn::Token![struct]>()?;
         let name = input.parse()?;
         let content;
         braced!(content in input);
-        Ok(Self(visibility, name, parse_tokens(&content)?))
+        Ok(Self(attrs, visibility, name, parse_tokens(&content)?))
     }
 }
 
@@ -148,7 +150,7 @@ pub fn expand_schema(
     embedded: Option<ResolvedTheme>,
     facade: &TokenStream2,
 ) -> TokenStream2 {
-    let ThemeSchema(visibility, name, tokens) = schema;
+    let ThemeSchema(attrs, visibility, name, tokens) = schema;
     let mut generated = Vec::new();
     let (fields, values, types) = expand_tokens(
         &name,
@@ -157,6 +159,7 @@ pub fn expand_schema(
         &mut Vec::new(),
         &mut generated,
         facade,
+        &attrs,
     );
     let reload_assignments = expand_reload(&tokens, &mut Vec::new(), facade);
     let loader = embedded.map(|theme| {
@@ -197,6 +200,7 @@ pub fn expand_schema(
 
     quote! {
         #(#generated)*
+        #(#attrs)*
         #[allow(missing_docs)]
         #visibility struct #name {
             #(#fields)*
@@ -524,6 +528,7 @@ fn expand_tokens(
     path: &mut Vec<Ident>,
     generated: &mut Vec<TokenStream2>,
     facade: &TokenStream2,
+    struct_attrs: &[Attribute],
 ) -> (Vec<TokenStream2>, Vec<TokenStream2>, Vec<Type>) {
     let mut fields = Vec::new();
     let mut values = Vec::new();
@@ -541,12 +546,20 @@ fn expand_tokens(
             Token::Group(name, tokens) => {
                 path.push(name.clone());
                 let group_name = group_name(root, path);
-                let (group_fields, group_values, group_types) =
-                    expand_tokens(root, visibility, tokens, path, generated, facade);
+                let (group_fields, group_values, group_types) = expand_tokens(
+                    root,
+                    visibility,
+                    tokens,
+                    path,
+                    generated,
+                    facade,
+                    struct_attrs,
+                );
                 path.pop();
                 generated.push(quote! {
                     #[doc(hidden)]
                     #[allow(missing_docs)]
+                    #(#struct_attrs)*
                     #visibility struct #group_name {
                         #(#group_fields)*
                     }

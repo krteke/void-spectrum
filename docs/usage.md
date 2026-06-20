@@ -23,8 +23,8 @@ define_theme_tokens! {
 }
 
 // Expands to:
-// pub struct MiniTheme { pub surface: MiniThemeSurfaceTokens }
-// pub struct MiniThemeSurfaceTokens { pub background: Color, pub foreground: Color }
+// pub struct MiniTheme { pub surface: MiniThemeSurface }
+// pub struct MiniThemeSurface { pub background: Color, pub foreground: Color }
 // impl MiniTheme { fn try_from_source(...) fn reload(...) }
 ```
 
@@ -68,6 +68,42 @@ define_theme_tokens! {
         }
         effects {
             elevation: ShadowLayer,
+        }
+    }
+}
+```
+
+### User Attributes
+
+Outer attributes placed before `struct` are applied to **every** generated struct
+(the root struct and all nested sub-structs):
+
+```rust
+use spectrum_theme::{define_theme_tokens, Color, Radius};
+
+define_theme_tokens! {
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct Themed {
+        surface {
+            background: Color,
+        }
+        corners {
+            card: Radius,
+        }
+    }
+}
+// Themed, ThemedSurface, and ThemedCorners all get #[derive(Clone, Debug, PartialEq, Eq)].
+```
+
+Multiple `#[derive]` attributes and split attributes are supported:
+
+```rust
+define_theme_tokens! {
+    #[derive(Clone)]
+    #[derive(Debug)]
+    pub struct SplitAttrTheme {
+        surface {
+            background: Color,
         }
     }
 }

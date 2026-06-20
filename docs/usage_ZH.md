@@ -23,8 +23,8 @@ define_theme_tokens! {
 }
 
 // 展开后生成：
-// pub struct MiniTheme { pub surface: MiniThemeSurfaceTokens }
-// pub struct MiniThemeSurfaceTokens { pub background: Color, pub foreground: Color }
+// pub struct MiniTheme { pub surface: MiniThemeSurface }
+// pub struct MiniThemeSurface { pub background: Color, pub foreground: Color }
 // impl MiniTheme { fn try_from_source(...) fn reload(...) }
 ```
 
@@ -68,6 +68,41 @@ define_theme_tokens! {
         }
         effects {
             elevation: ShadowLayer,
+        }
+    }
+}
+```
+
+### 用户自定义属性
+
+`struct` 前放置的 outer attribute 会应用到**所有**生成的结构体（根结构体和所有嵌套子结构体）：
+
+```rust
+use spectrum_theme::{define_theme_tokens, Color, Radius};
+
+define_theme_tokens! {
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct Themed {
+        surface {
+            background: Color,
+        }
+        corners {
+            card: Radius,
+        }
+    }
+}
+// Themed、ThemedSurface、ThemedCorners 都会获得 #[derive(Clone, Debug, PartialEq, Eq)]。
+```
+
+支持多个 `#[derive]` 和拆分属性：
+
+```rust
+define_theme_tokens! {
+    #[derive(Clone)]
+    #[derive(Debug)]
+    pub struct SplitAttrTheme {
+        surface {
+            background: Color,
         }
     }
 }

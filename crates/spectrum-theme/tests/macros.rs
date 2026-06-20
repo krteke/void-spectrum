@@ -86,6 +86,38 @@ define_theme_tokens! {
     }
 }
 
+define_theme_tokens! {
+    #[derive(Clone)]
+    pub struct CloneTheme {
+        palette {
+            background: Color,
+            surface: Color,
+        }
+        shape {
+            gap: Length,
+        }
+    }
+}
+
+define_theme_tokens! {
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct MultiDeriveTheme {
+        surface {
+            background: Color,
+        }
+    }
+}
+
+define_theme_tokens! {
+    #[derive(Clone)]
+    #[derive(Debug)]
+    pub struct SplitAttrTheme {
+        surface {
+            background: Color,
+        }
+    }
+}
+
 include!(concat!(env!("OUT_DIR"), "/theme_tokens.rs"));
 
 struct StaticSource;
@@ -235,6 +267,52 @@ fn builds_from_a_custom_token_source() {
     let line_height_theme =
         LineHeightTheme::try_from_source(&LineHeightOnlySource).expect("line-height theme");
     assert_eq!(line_height_theme.line_height.body.to_string(), "24px");
+}
+
+#[test]
+fn user_derives_apply_to_top_level_and_nested_structs() {
+    // These must compile to prove Clone is derived on all structs.
+    let theme = CloneTheme::try_from_source(&StaticSource).expect("typed theme");
+    let _ = theme.clone();
+
+    // Clone is also derived on the generated sub-struct.
+    let _ = theme.palette.clone();
+    let _ = theme.shape.clone();
+}
+
+#[test]
+fn combined_derive_macro_inherits_to_all_structs() {
+    let theme = MultiDeriveTheme::try_from_source(&StaticSource).expect("typed theme");
+
+    // Clone
+    let _ = theme.clone();
+    let _ = theme.surface.clone();
+
+    // Debug (compiles-only check: Debug impl exists)
+    let _ = format!("{theme:?}");
+    let _ = format!("{:?}", theme.surface);
+
+    // PartialEq (compiles-only check)
+    let other = theme.clone();
+    assert_eq!(theme, other);
+}
+
+#[test]
+fn split_attributes_are_all_inherited() {
+    let theme = SplitAttrTheme::try_from_source(&StaticSource).expect("typed theme");
+
+    // Both #[derive(Clone)] and #[derive(Debug)] must be present.
+    let _ = theme.clone();
+    let _ = theme.surface.clone();
+    let _ = format!("{theme:?}");
+    let _ = format!("{:?}", theme.surface);
+}
+
+#[test]
+fn no_attributes_still_compiles() {
+    // The existing AppTheme has no user attributes and must still compile.
+    let theme = AppTheme::try_from_source(&StaticSource).expect("typed theme");
+    assert_eq!(theme.editor.cursor, Color::new(1, 2, 3));
 }
 
 #[cfg(feature = "seed")]

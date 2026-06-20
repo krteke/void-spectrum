@@ -1,15 +1,21 @@
 //! Behavior tests for build-time typed theme generation.
 
-use spectrum_codegen::{CodegenError, ThemeCodegen};
+use spectrum_codegen::{CodegenError, ThemeCodegen, ThemeSchema, expand_schema};
 use std::{
     fs,
     path::{Path, PathBuf},
 };
 
+use proc_macro2::TokenStream;
+
 fn fixture(path: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../spectrum-theme/tests")
         .join(path)
+}
+
+fn facade() -> TokenStream {
+    syn::parse_str("::spectrum_theme").expect("valid facade path")
 }
 
 #[test]
@@ -66,4 +72,70 @@ fn rejects_unresolved_references() {
     .expect_err("unresolved reference");
 
     assert!(matches!(error, CodegenError::Resolve { .. }));
+}
+
+#[test]
+fn expand_schema_passes_attributes_to_top_level_struct() {
+    let schema: ThemeSchema = syn::parse2(quote::quote!(
+        #[derive(Clone)]
+        pub struct TestTheme {
+            surface {
+                background: spectrum_theme::Color,
+            }
+        }
+    ))
+    .expect("valid schema");
+
+    let tokens = expand_schema(schema, None, &facade());
+    let code = tokens.to_string();
+
+    // Attribute must appear before the top-level struct.
+    let struct_pos = code.find("pub struct TestTheme").expect("top-level struct");
+    let derive_pos = code[..struct_pos]
+        .rfind("# [derive (Clone)]")
+        .expect("derive on top-level struct");
+    assert!(derive_pos < struct_pos);
+}
+
+#[test]
+fn expand_schema_cascades_attributes_to_generated_sub_structs() {
+    let schema: ThemeSchema = syn::parse2(quote::quote!(
+        #[derive(Clone)]
+        pub struct TestTheme {
+            surface {
+                background: spectrum_theme::Color,
+            }
+        }
+    ))
+    .expect("valid schema");
+
+    let tokens = expand_schema(schema, None, &facade());
+    let code = tokens.to_string();
+
+    // The generated sub-struct is named TestThemeSurface (root + PascalCase path).
+    let sub_pos = code
+        .find("pub struct TestThemeSurface")
+        .expect("sub-struct");
+    let derive_pos = code[..sub_pos]
+        .rfind("# [derive (Clone)]")
+        .expect("derive on sub-struct");
+    assert!(derive_pos < sub_pos);
+}
+
+#[test]
+fn expand_schema_without_attributes_produces_no_user_derives() {
+    let schema: ThemeSchema = syn::parse2(quote::quote!(
+        pub struct TestTheme {
+            surface {
+                background: spectrum_theme::Color,
+            }
+        }
+    ))
+    .expect("valid schema");
+
+    let tokens = expand_schema(schema, None, &facade());
+    let code = tokens.to_string();
+
+    // No user derive should appear anywhere (only internal allow/doc attributes).
+    assert!(!code.contains("#[derive("));
 }
