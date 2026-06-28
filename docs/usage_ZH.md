@@ -108,6 +108,80 @@ define_theme_tokens! {
 }
 ```
 
+### 可复用组件状态集合
+
+当多个 UI 状态拥有相同内部字段时，使用 `component` 定义一次组件令牌结构，再用
+`states` 为不同状态实例化同一个 Rust 类型：
+
+```rust
+use spectrum_theme::{define_theme_tokens, Color, Radius};
+
+define_theme_tokens! {
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct AppTheme {
+        component ButtonTokens {
+            fg: Color,
+            bg: Color,
+            border: Color,
+            radius: Radius,
+        }
+
+        states button: ButtonTokens {
+            normal,
+            hover extends normal,
+            press_down extends hover,
+            focus extends normal,
+        }
+    }
+}
+```
+
+它会生成：
+
+```rust
+pub struct ButtonTokens {
+    pub fg: Color,
+    pub bg: Color,
+    pub border: Color,
+    pub radius: Radius,
+}
+
+pub struct AppThemeButtonStates {
+    pub normal: ButtonTokens,
+    pub hover: ButtonTokens,
+    pub press_down: ButtonTokens,
+    pub focus: ButtonTokens,
+}
+
+pub enum AppThemeButtonState {
+    Normal,
+    Hover,
+    PressDown,
+    Focus,
+}
+```
+
+运行时可以通过状态枚举访问，并读取声明的状态关系：
+
+```rust
+let hover = theme.button.get(AppThemeButtonState::Hover);
+let parent = AppThemeButtonState::PressDown.parent();
+
+assert_eq!(parent, Some(AppThemeButtonState::Hover));
+```
+
+生成器读取的令牌路径仍然是显式路径：
+
+```text
+button.normal.fg
+button.hover.fg
+button.press_down.fg
+button.focus.fg
+```
+
+`extends` 当前用于记录状态关系，方便 UI 代码做动画或状态回退判断。它目前不会在
+读取配置时自动用父状态填充缺失字段；每个生成出的令牌路径仍需要在 source 中存在。
+
 ### 运行时构造实例
 
 ```rust
@@ -399,6 +473,32 @@ seed = "#6750a480"     # RGBA
 # Material 角色
 "accent.primary" = "{material.primary}"
 ```
+
+状态集合令牌使用与生成契约一致的扁平路径：
+
+```toml
+[colors]
+"button.normal.fg" = "#ffffff"
+"button.normal.bg" = "{material.primary}"
+"button.normal.border" = "{material.outline}"
+"button.hover.fg" = "#ffffff"
+"button.hover.bg" = "{material.primary_container}"
+"button.hover.border" = "{material.primary}"
+"button.press_down.fg" = "#ffffff"
+"button.press_down.bg" = "#4f378b"
+"button.press_down.border" = "{material.primary}"
+"button.focus.fg" = "#ffffff"
+"button.focus.bg" = "{material.primary}"
+"button.focus.border" = "{material.primary}"
+
+[radii]
+"button.normal.radius" = "8px"
+"button.hover.radius" = "8px"
+"button.press_down.radius" = "8px"
+"button.focus.radius" = "8px"
+```
+
+当前 schema 有意保持显式。后续可以引入 contract-aware 配置格式，在加载时应用状态继承来减少重复配置。
 
 ### Material 颜色角色
 

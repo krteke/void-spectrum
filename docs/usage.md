@@ -109,6 +109,81 @@ define_theme_tokens! {
 }
 ```
 
+### Reusable Component State Sets
+
+Use `component` when several UI states share the same internal fields. The
+component is generated once, and every state field uses that same Rust type:
+
+```rust
+use spectrum_theme::{define_theme_tokens, Color, Radius};
+
+define_theme_tokens! {
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct AppTheme {
+        component ButtonTokens {
+            fg: Color,
+            bg: Color,
+            border: Color,
+            radius: Radius,
+        }
+
+        states button: ButtonTokens {
+            normal,
+            hover extends normal,
+            press_down extends hover,
+            focus extends normal,
+        }
+    }
+}
+```
+
+This generates:
+
+```rust
+pub struct ButtonTokens {
+    pub fg: Color,
+    pub bg: Color,
+    pub border: Color,
+    pub radius: Radius,
+}
+
+pub struct AppThemeButtonStates {
+    pub normal: ButtonTokens,
+    pub hover: ButtonTokens,
+    pub press_down: ButtonTokens,
+    pub focus: ButtonTokens,
+}
+
+pub enum AppThemeButtonState {
+    Normal,
+    Hover,
+    PressDown,
+    Focus,
+}
+```
+
+State lookup and declared state relationships are available at runtime:
+
+```rust
+let hover = theme.button.get(AppThemeButtonState::Hover);
+let parent = AppThemeButtonState::PressDown.parent();
+
+assert_eq!(parent, Some(AppThemeButtonState::Hover));
+```
+
+The generated token paths are still explicit:
+
+```text
+button.normal.fg
+button.hover.fg
+button.press_down.fg
+button.focus.fg
+```
+
+`extends` records the state relationship for UI code. It does not currently
+fill missing token values from the parent state; each generated token path must
+be present in the source.
+
 ### Building an Instance at Runtime
 
 ```rust
@@ -400,6 +475,34 @@ Values can be:
 # Material role
 "accent.primary" = "{material.primary}"
 ```
+
+State-set tokens use the same flat paths as the generated contract:
+
+```toml
+[colors]
+"button.normal.fg" = "#ffffff"
+"button.normal.bg" = "{material.primary}"
+"button.normal.border" = "{material.outline}"
+"button.hover.fg" = "#ffffff"
+"button.hover.bg" = "{material.primary_container}"
+"button.hover.border" = "{material.primary}"
+"button.press_down.fg" = "#ffffff"
+"button.press_down.bg" = "#4f378b"
+"button.press_down.border" = "{material.primary}"
+"button.focus.fg" = "#ffffff"
+"button.focus.bg" = "{material.primary}"
+"button.focus.border" = "{material.primary}"
+
+[radii]
+"button.normal.radius" = "8px"
+"button.hover.radius" = "8px"
+"button.press_down.radius" = "8px"
+"button.focus.radius" = "8px"
+```
+
+This format is intentionally explicit in the current schema. A future
+contract-aware configuration format can reduce this repetition by applying
+state inheritance while loading.
 
 ### Material Color Roles
 

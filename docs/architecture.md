@@ -58,6 +58,17 @@ resolves static theme files in build scripts and emits ordinary Rust source that
 consuming crates include from `OUT_DIR`, keeping IDE diagnostics and completion
 aware of generated token fields.
 
+Inline contracts can also define reusable component structs and state sets. A
+component such as `ButtonTokens` is generated once, while a state set such as
+`button` generates `normal`, `hover`, and `focus` fields that all share the
+same component type. State sets keep UI state relationships in the generated
+Rust contract without forcing every state path to become a distinct nested
+struct type.
+
+The resolver still stores resolved values as flat token paths. Codegen maps
+those paths into reusable Rust structs; it does not require platform adapters or
+the resolver to know about buttons, focus states, or animation semantics.
+
 ### `spectrum-macros`
 
 Owns procedural macros for inline typed token contracts. File-driven generation
