@@ -180,9 +180,10 @@ button.press_down.fg
 button.focus.fg
 ```
 
-`extends` records the state relationship for UI code. It does not currently
-fill missing token values from the parent state; each generated token path must
-be present in the source.
+`extends` records the state relationship for UI code and controls source lookup
+fallback. If a token is missing from `press_down`, the generated reader tries
+`hover`, then `normal`. Non-missing source errors are returned immediately and
+do not fall back.
 
 ### Building an Instance at Runtime
 
@@ -483,26 +484,18 @@ State-set tokens use the same flat paths as the generated contract:
 "button.normal.fg" = "#ffffff"
 "button.normal.bg" = "{material.primary}"
 "button.normal.border" = "{material.outline}"
-"button.hover.fg" = "#ffffff"
 "button.hover.bg" = "{material.primary_container}"
 "button.hover.border" = "{material.primary}"
-"button.press_down.fg" = "#ffffff"
 "button.press_down.bg" = "#4f378b"
-"button.press_down.border" = "{material.primary}"
-"button.focus.fg" = "#ffffff"
-"button.focus.bg" = "{material.primary}"
 "button.focus.border" = "{material.primary}"
 
 [radii]
 "button.normal.radius" = "8px"
-"button.hover.radius" = "8px"
-"button.press_down.radius" = "8px"
-"button.focus.radius" = "8px"
 ```
 
-This format is intentionally explicit in the current schema. A future
-contract-aware configuration format can reduce this repetition by applying
-state inheritance while loading.
+Missing state fields inherit through the generated `extends` chain, so the
+example above reads `hover.fg`, `press_down.fg`, and all state radii from
+`button.normal`.
 
 ### Material Color Roles
 

@@ -179,8 +179,9 @@ button.press_down.fg
 button.focus.fg
 ```
 
-`extends` 当前用于记录状态关系，方便 UI 代码做动画或状态回退判断。它目前不会在
-读取配置时自动用父状态填充缺失字段；每个生成出的令牌路径仍需要在 source 中存在。
+`extends` 既记录状态关系，也控制 source 读取时的回退顺序。如果 `press_down` 缺少某个
+字段，生成代码会继续尝试 `hover`，再尝试 `normal`。非缺失类错误会直接返回，不会被
+父状态掩盖。
 
 ### 运行时构造实例
 
@@ -481,24 +482,17 @@ seed = "#6750a480"     # RGBA
 "button.normal.fg" = "#ffffff"
 "button.normal.bg" = "{material.primary}"
 "button.normal.border" = "{material.outline}"
-"button.hover.fg" = "#ffffff"
 "button.hover.bg" = "{material.primary_container}"
 "button.hover.border" = "{material.primary}"
-"button.press_down.fg" = "#ffffff"
 "button.press_down.bg" = "#4f378b"
-"button.press_down.border" = "{material.primary}"
-"button.focus.fg" = "#ffffff"
-"button.focus.bg" = "{material.primary}"
 "button.focus.border" = "{material.primary}"
 
 [radii]
 "button.normal.radius" = "8px"
-"button.hover.radius" = "8px"
-"button.press_down.radius" = "8px"
-"button.focus.radius" = "8px"
 ```
 
-当前 schema 有意保持显式。后续可以引入 contract-aware 配置格式，在加载时应用状态继承来减少重复配置。
+缺失的状态字段会沿生成契约里的 `extends` 链继承。因此上面的 `hover.fg`、`press_down.fg`
+以及所有状态的 `radius` 都会读取 `button.normal` 中的值。
 
 ### Material 颜色角色
 

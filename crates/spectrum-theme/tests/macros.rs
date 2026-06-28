@@ -39,6 +39,21 @@ define_theme_tokens! {
 }
 
 define_theme_tokens! {
+    struct ComponentStateTheme {
+        component StateButtonTokens {
+            fg: Color,
+            gap: Length,
+        }
+
+        states button: StateButtonTokens {
+            normal,
+            hover extends normal,
+            press_down extends hover,
+        }
+    }
+}
+
+define_theme_tokens! {
     struct ShadowTheme {
         shadow {
             card: ShadowLayer,
@@ -385,6 +400,24 @@ fn updates_all_material_fields_from_one_runtime_seed() {
     assert_ne!(theme.editor.cursor, original_cursor);
     assert_ne!(theme.editor.background, original_background);
     assert_eq!(theme.editor.selection.background, fixed_selection);
+}
+
+#[cfg(feature = "seed")]
+#[test]
+fn component_states_inherit_missing_resolved_theme_values() {
+    let resolved = resolve_theme(
+        &ThemeSpec::new("Button")
+            .with_color("button.normal.fg", "#010203".parse().expect("color"))
+            .with_length("button.normal.gap", "4px".parse().expect("length"))
+            .with_color("button.hover.fg", "#040506".parse().expect("color")),
+    )
+    .expect("resolved");
+
+    let theme = ComponentStateTheme::try_from_source(&resolved).expect("typed theme");
+
+    assert_eq!(theme.button.hover.gap.to_string(), "4px");
+    assert_eq!(theme.button.press_down.fg, Color::new(4, 5, 6));
+    assert_eq!(theme.button.press_down.gap.to_string(), "4px");
 }
 
 #[cfg(feature = "seed")]

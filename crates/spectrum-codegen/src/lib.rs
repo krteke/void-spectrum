@@ -6,7 +6,7 @@ use spectrum_core::{Color, ShadowLayer};
 use spectrum_resolver::{ColorBinding, ResolvedTheme, resolve_theme};
 use spectrum_schema::{ThemeMode, ThemeSpec};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     env, fs,
     path::{Path, PathBuf},
 };
@@ -710,12 +710,14 @@ fn expand_states(
         let name = &state.name;
         let mut state_path = path.to_vec();
         state_path.extend([states.name.clone(), state.name.clone()]);
+        let inherited_bases = state_source_bases(states, state, path);
         let (values, _) = expand_token_values(
             component,
             component_tokens,
             &mut state_path,
             &mut Vec::new(),
             facade,
+            Some(&inherited_bases),
         );
         quote!(#name: #component { #(#values)* },)
     });
@@ -747,6 +749,7 @@ fn expand_states(
             &mut state_path,
             &mut Vec::new(),
             facade,
+            None,
         );
         types.extend(next_types);
     }
@@ -796,6 +799,7 @@ fn expand_token_values(
     source_path: &mut Vec<Ident>,
     struct_path: &mut Vec<Ident>,
     facade: &TokenStream2,
+    inherited_bases: Option<&[Vec<Ident>]>,
 ) -> (Vec<TokenStream2>, Vec<Type>) {
     let mut values = Vec::new();
     let mut types = Vec::new();
@@ -803,17 +807,27 @@ fn expand_token_values(
         match token {
             Token::Value(name, ty) => {
                 let path = LitStr::new(&token_path(source_path, name), Span::call_site());
-                values.push(quote!(
-                    #name: <#ty as #facade::__private::TokenValue<S>>::read(source, #path)?,
-                ));
+                let value = if let Some(bases) = inherited_bases.filter(|bases| bases.len() > 1) {
+                    let paths = inherited_path_literals(bases, struct_path, name);
+                    quote!(#facade::__private::read_inherited(source, [#(#paths),*])?)
+                } else {
+                    quote!(<#ty as #facade::__private::TokenValue<S>>::read(source, #path)?)
+                };
+                values.push(quote!(#name: #value,));
                 types.push(ty.as_ref().clone());
             }
             Token::Group(name, children) => {
                 source_path.push(name.clone());
                 struct_path.push(name.clone());
                 let group = group_name(root, struct_path);
-                let (group_values, group_types) =
-                    expand_token_values(root, children, source_path, struct_path, facade);
+                let (group_values, group_types) = expand_token_values(
+                    root,
+                    children,
+                    source_path,
+                    struct_path,
+                    facade,
+                    inherited_bases,
+                );
                 struct_path.pop();
                 source_path.pop();
                 values.push(quote!(#name: #group { #(#group_values)* },));
@@ -864,6 +878,7 @@ fn expand_reload(
                 for state in &states.states {
                     let mut source_path = path.clone();
                     source_path.extend([states.name.clone(), state.name.clone()]);
+                    let inherited_bases = state_source_bases(states, state, path);
                     let self_path = if path.is_empty() {
                         let name = &states.name;
                         let state = &state.name;
@@ -877,8 +892,10 @@ fn expand_reload(
                     assignments.extend(expand_component_reload(
                         component_tokens,
                         &mut source_path,
+                        &mut Vec::new(),
                         &self_path,
                         facade,
+                        Some(&inherited_bases),
                     ));
                 }
             }
@@ -890,36 +907,87 @@ fn expand_reload(
 fn expand_component_reload(
     tokens: &[Token],
     source_path: &mut Vec<Ident>,
+    struct_path: &mut Vec<Ident>,
     self_path: &TokenStream2,
     facade: &TokenStream2,
+    inherited_bases: Option<&[Vec<Ident>]>,
 ) -> Vec<TokenStream2> {
     let mut assignments = Vec::new();
     for token in tokens {
         match token {
             Token::Value(name, ty) => {
                 let path = LitStr::new(&token_path(source_path, name), Span::call_site());
-                assignments.push(quote!(
-                    #self_path.#name = <#ty as #facade::__private::TokenValue<S>>::read(
-                        source,
-                        #path,
-                    )?;
-                ));
+                let value = if let Some(bases) = inherited_bases.filter(|bases| bases.len() > 1) {
+                    let paths = inherited_path_literals(bases, struct_path, name);
+                    quote!(#facade::__private::read_inherited(source, [#(#paths),*])?)
+                } else {
+                    quote!(<#ty as #facade::__private::TokenValue<S>>::read(source, #path)?)
+                };
+                assignments.push(quote!(#self_path.#name = #value;));
             }
             Token::Group(name, children) => {
                 let nested_self = quote!(#self_path.#name);
                 source_path.push(name.clone());
+                struct_path.push(name.clone());
                 assignments.extend(expand_component_reload(
                     children,
                     source_path,
+                    struct_path,
                     &nested_self,
                     facade,
+                    inherited_bases,
                 ));
+                struct_path.pop();
                 source_path.pop();
             }
             Token::Component(_, _) | Token::States(_) => {}
         }
     }
     assignments
+}
+
+fn state_source_bases(states: &StateSet, state: &StateVariant, path: &[Ident]) -> Vec<Vec<Ident>> {
+    state_chain(states, state)
+        .into_iter()
+        .map(|state_name| {
+            let mut base = path.to_vec();
+            base.extend([states.name.clone(), state_name]);
+            base
+        })
+        .collect()
+}
+
+fn state_chain(states: &StateSet, state: &StateVariant) -> Vec<Ident> {
+    let mut names = Vec::new();
+    let mut seen = BTreeSet::new();
+    let mut current = Some(state.name.clone());
+    while let Some(name) = current {
+        if !seen.insert(name.to_string()) {
+            break;
+        }
+        current = states
+            .states
+            .iter()
+            .find(|candidate| candidate.name == name)
+            .and_then(|candidate| candidate.extends.clone());
+        names.push(name);
+    }
+    names
+}
+
+fn inherited_path_literals(
+    bases: &[Vec<Ident>],
+    struct_path: &[Ident],
+    name: &Ident,
+) -> Vec<LitStr> {
+    bases
+        .iter()
+        .map(|base| {
+            let mut path = base.clone();
+            path.extend(struct_path.iter().cloned());
+            LitStr::new(&token_path(&path, name), Span::call_site())
+        })
+        .collect()
 }
 
 fn token_path(path: &[Ident], name: &Ident) -> String {

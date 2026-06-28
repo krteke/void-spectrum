@@ -8,10 +8,33 @@ extern crate self as spectrum_theme;
 pub mod __private {
     pub trait TokenSource {
         type Error;
+
+        fn is_missing(error: &Self::Error) -> bool {
+            let _ = error;
+            false
+        }
     }
 
     pub trait TokenValue<S: TokenSource>: Sized {
         fn read(source: &S, path: &str) -> Result<Self, S::Error>;
+    }
+
+    pub fn read_inherited<T, S, const N: usize>(source: &S, paths: [&str; N]) -> Result<T, S::Error>
+    where
+        T: TokenValue<S>,
+        S: TokenSource,
+    {
+        let mut missing = None;
+        for path in paths {
+            match T::read(source, path) {
+                Ok(value) => return Ok(value),
+                Err(error) if S::is_missing(&error) => {
+                    missing.get_or_insert(error);
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        Err(missing.expect("inherited token lookup has at least one path"))
     }
 }
 
@@ -27,6 +50,32 @@ impl __private::TokenSource for PathSource {
     type Error = core::convert::Infallible;
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PathError {
+    Missing(String),
+    Invalid(String),
+}
+
+struct InheritedPathSource;
+
+impl __private::TokenSource for InheritedPathSource {
+    type Error = PathError;
+
+    fn is_missing(error: &Self::Error) -> bool {
+        matches!(error, PathError::Missing(_))
+    }
+}
+
+struct InvalidHoverSource;
+
+impl __private::TokenSource for InvalidHoverSource {
+    type Error = PathError;
+
+    fn is_missing(error: &Self::Error) -> bool {
+        matches!(error, PathError::Missing(_))
+    }
+}
+
 impl __private::TokenValue<PathSource> for Px {
     fn read(_: &PathSource, path: &str) -> Result<Self, core::convert::Infallible> {
         Ok(Px(match path {
@@ -40,6 +89,30 @@ impl __private::TokenValue<PathSource> for Px {
             "button.focus.bg" => 40,
             _ => 0,
         }))
+    }
+}
+
+impl __private::TokenValue<InheritedPathSource> for Px {
+    fn read(_: &InheritedPathSource, path: &str) -> Result<Self, PathError> {
+        match path {
+            "button.normal.fg" => Ok(Px(1)),
+            "button.normal.bg" => Ok(Px(10)),
+            "button.hover.bg" => Ok(Px(20)),
+            "button.press_down.fg" => Ok(Px(3)),
+            "button.focus.fg" => Ok(Px(4)),
+            _ => Err(PathError::Missing(path.to_owned())),
+        }
+    }
+}
+
+impl __private::TokenValue<InvalidHoverSource> for Px {
+    fn read(_: &InvalidHoverSource, path: &str) -> Result<Self, PathError> {
+        match path {
+            "button.normal.fg" => Ok(Px(1)),
+            "button.normal.bg" => Ok(Px(10)),
+            "button.hover.fg" => Err(PathError::Invalid(path.to_owned())),
+            _ => Err(PathError::Missing(path.to_owned())),
+        }
     }
 }
 
@@ -145,4 +218,24 @@ fn builds_component_state_sets_from_token_sources() {
     assert_eq!(theme.button.hover.bg.0, 20);
     assert_eq!(theme.button.press_down.fg.0, 3);
     assert_eq!(theme.button.focus.bg.0, 40);
+}
+
+#[test]
+fn state_sets_inherit_missing_values_from_parent_states() {
+    let mut theme = StatefulTheme::try_from_source(&InheritedPathSource).expect("stateful theme");
+
+    assert_eq!(theme.button.hover.fg.0, 1);
+    assert_eq!(theme.button.press_down.bg.0, 20);
+    assert_eq!(theme.button.focus.bg.0, 10);
+
+    theme.reload(&InheritedPathSource).expect("reload");
+    assert_eq!(theme.button.press_down.bg.0, 20);
+}
+
+#[test]
+fn state_set_inheritance_keeps_non_missing_errors() {
+    let error = StatefulTheme::try_from_source(&InvalidHoverSource)
+        .expect_err("invalid child value should not fall back");
+
+    assert_eq!(error, PathError::Invalid("button.hover.fg".to_owned()));
 }

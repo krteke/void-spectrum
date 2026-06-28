@@ -48,9 +48,9 @@ spectrum-core <- spectrum-iced ----^
 
 内联契约还可以定义可复用组件结构和状态集合。例如 `ButtonTokens` 只生成一次，而
 `button` 状态集合会生成 `normal`、`hover`、`focus` 等字段，并且这些字段都使用同一个
-组件类型。状态集合让 UI 状态关系进入生成的 Rust 契约，而不是把每个状态路径都变成互不兼容的嵌套结构体类型。
+组件类型。状态集合让 UI 状态关系进入生成的 Rust 契约，而不是把每个状态路径都变成互不兼容的嵌套结构体类型。声明的 `extends` 关系也会驱动生成代码在状态字段缺失时按父状态回退读取。
 
-resolver 仍然以扁平 token path 存储解析后的值。codegen 负责把这些路径映射到可复用 Rust 结构体；resolver 和平台 adapter 不需要知道 button、focus 状态或动画语义。
+resolver 仍然以扁平 token path 存储解析后的值。codegen 负责把这些路径映射到可复用 Rust 结构体，并在构建 typed theme 时应用状态回退；resolver 和平台 adapter 不需要知道 button、focus 状态或动画语义。
 
 ### `spectrum-macros`
 

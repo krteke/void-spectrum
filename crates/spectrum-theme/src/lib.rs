@@ -48,6 +48,11 @@ pub mod __private {
 
     pub trait TokenSource {
         type Error;
+
+        fn is_missing(error: &Self::Error) -> bool {
+            let _ = error;
+            false
+        }
     }
 
     #[cfg(feature = "seed")]
@@ -100,6 +105,24 @@ pub mod __private {
 
     pub trait TokenValue<S: TokenSource>: Sized {
         fn read(source: &S, path: &str) -> Result<Self, S::Error>;
+    }
+
+    pub fn read_inherited<T, S, const N: usize>(source: &S, paths: [&str; N]) -> Result<T, S::Error>
+    where
+        T: TokenValue<S>,
+        S: TokenSource,
+    {
+        let mut missing = None;
+        for path in paths {
+            match T::read(source, path) {
+                Ok(value) => return Ok(value),
+                Err(error) if S::is_missing(&error) => {
+                    missing.get_or_insert(error);
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        Err(missing.expect("inherited token lookup has at least one path"))
     }
 
     impl<S: ColorSource> TokenValue<S> for Color {
@@ -158,6 +181,10 @@ pub mod __private {
 
     impl TokenSource for ResolvedTheme {
         type Error = ThemeBuildError;
+
+        fn is_missing(error: &Self::Error) -> bool {
+            matches!(error, ThemeBuildError::MissingToken { .. })
+        }
     }
 
     impl ColorSource for ResolvedTheme {
@@ -204,6 +231,10 @@ pub mod __private {
 
     impl TokenSource for SeededTheme<'_> {
         type Error = ThemeBuildError;
+
+        fn is_missing(error: &Self::Error) -> bool {
+            matches!(error, ThemeBuildError::MissingToken { .. })
+        }
     }
 
     impl ColorSource for SeededTheme<'_> {
