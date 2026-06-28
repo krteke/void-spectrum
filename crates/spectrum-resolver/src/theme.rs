@@ -45,6 +45,20 @@ pub struct ResolvedTheme {
     pub shadows: Vec<(String, ShadowLayer)>,
 }
 
+impl ResolvedTheme {
+    /// Returns a new theme with the given seed color.
+    #[must_use]
+    pub fn with_seed(mut self, seed: Color) -> Self {
+        self.seed = Some(seed);
+        self
+    }
+
+    /// Sets the seed color for the theme.
+    pub fn set_seed(&mut self, seed: Color) {
+        self.seed = Some(seed);
+    }
+}
+
 /// Resolves a theme specification into an owned theme.
 pub fn resolve_theme(spec: &ThemeSpec) -> Result<ResolvedTheme, ResolveError> {
     Ok(ResolvedTheme {

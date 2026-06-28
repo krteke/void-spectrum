@@ -53,6 +53,36 @@ use syn::{Ident, parse_macro_input};
 /// Multiple `#[derive]` attributes and split attributes (`#[derive(Clone)] #[derive(Debug)]`)
 /// are supported.
 ///
+/// # Reusable component state sets
+///
+/// `component` defines one reusable token struct. `states` instantiates that
+/// struct for named UI states, so every state has the same Rust type:
+///
+/// ```ignore
+/// use spectrum_theme::{define_theme_tokens, Color};
+///
+/// define_theme_tokens! {
+///     #[derive(Clone, Debug, PartialEq)]
+///     pub struct MyTheme {
+///         component ButtonTokens {
+///             fg: Color,
+///             bg: Color,
+///         }
+///
+///         states button: ButtonTokens {
+///             normal,
+///             hover extends normal,
+///             press_down extends hover,
+///             focus extends normal,
+///         }
+///     }
+/// }
+/// ```
+///
+/// This generates `ButtonTokens`, `MyThemeButtonStates`, and
+/// `MyThemeButtonState`. The state container exposes `get(state)`, and the
+/// state enum exposes `parent()` for declared `extends` relationships.
+///
 /// # Constructing from a token source
 ///
 /// The generated struct has `try_from_source` for one-shot construction and

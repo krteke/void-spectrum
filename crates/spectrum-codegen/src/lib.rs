@@ -109,9 +109,31 @@ impl ThemeCodegen {
 /// Parsed schema for an inline typed token contract.
 pub struct ThemeSchema(Vec<Attribute>, Visibility, Ident, Vec<Token>);
 
+#[derive(Clone)]
 enum Token {
     Value(Ident, Box<Type>),
     Group(Ident, Vec<Token>),
+    Component(Ident, Vec<Token>),
+    States(StateSet),
+}
+
+#[derive(Clone)]
+struct StateSet {
+    name: Ident,
+    component: Ident,
+    states: Vec<StateVariant>,
+}
+
+#[derive(Clone)]
+struct StateVariant {
+    name: Ident,
+    extends: Option<Ident>,
+}
+
+mod keyword {
+    syn::custom_keyword!(component);
+    syn::custom_keyword!(states);
+    syn::custom_keyword!(extends);
 }
 
 impl Parse for ThemeSchema {
@@ -129,6 +151,32 @@ impl Parse for ThemeSchema {
 fn parse_tokens(input: ParseStream<'_>) -> SynResult<Vec<Token>> {
     let mut tokens = Vec::new();
     while !input.is_empty() {
+        if input.peek(keyword::component) {
+            input.parse::<keyword::component>()?;
+            let name = input.parse()?;
+            let content;
+            braced!(content in input);
+            tokens.push(Token::Component(name, parse_tokens(&content)?));
+            let _ = input.parse::<syn::Token![,]>();
+            continue;
+        }
+
+        if input.peek(keyword::states) {
+            input.parse::<keyword::states>()?;
+            let name = input.parse()?;
+            input.parse::<syn::Token![:]>()?;
+            let component = input.parse()?;
+            let content;
+            braced!(content in input);
+            tokens.push(Token::States(StateSet {
+                name,
+                component,
+                states: parse_states(&content)?,
+            }));
+            let _ = input.parse::<syn::Token![,]>();
+            continue;
+        }
+
         let name = input.parse()?;
         if input.peek(syn::Token![:]) {
             input.parse::<syn::Token![:]>()?;
@@ -143,6 +191,22 @@ fn parse_tokens(input: ParseStream<'_>) -> SynResult<Vec<Token>> {
     Ok(tokens)
 }
 
+fn parse_states(input: ParseStream<'_>) -> SynResult<Vec<StateVariant>> {
+    let mut states = Vec::new();
+    while !input.is_empty() {
+        let name = input.parse()?;
+        let extends = if input.peek(keyword::extends) {
+            input.parse::<keyword::extends>()?;
+            Some(input.parse()?)
+        } else {
+            None
+        };
+        states.push(StateVariant { name, extends });
+        let _ = input.parse::<syn::Token![,]>();
+    }
+    Ok(states)
+}
+
 /// Expands a parsed schema into Rust tokens.
 #[must_use]
 pub fn expand_schema(
@@ -151,17 +215,22 @@ pub fn expand_schema(
     facade: &TokenStream2,
 ) -> TokenStream2 {
     let ThemeSchema(attrs, visibility, name, tokens) = schema;
+    let components = collect_components(&tokens);
     let mut generated = Vec::new();
+    let env = ExpandEnv {
+        components: &components,
+        facade,
+        struct_attrs: &attrs,
+    };
     let (fields, values, types) = expand_tokens(
         &name,
         &visibility,
         &tokens,
+        &env,
         &mut Vec::new(),
         &mut generated,
-        facade,
-        &attrs,
     );
-    let reload_assignments = expand_reload(&tokens, &mut Vec::new(), facade);
+    let reload_assignments = expand_reload(&tokens, &components, &mut Vec::new(), facade);
     let loader = embedded.map(|theme| {
         let seed_update = seed_update_expr(&theme, facade);
         let theme = resolved_theme_expr(&theme, facade);
@@ -230,6 +299,16 @@ pub fn expand_schema(
         }
         #loader
     }
+}
+
+fn collect_components(tokens: &[Token]) -> BTreeMap<String, Vec<Token>> {
+    tokens
+        .iter()
+        .filter_map(|token| match token {
+            Token::Component(name, children) => Some((name.to_string(), children.clone())),
+            _ => None,
+        })
+        .collect()
 }
 
 fn resolve_theme_file(path: &Path) -> Result<ResolvedTheme, CodegenError> {
@@ -521,15 +600,22 @@ fn color_expr(color: Color, facade: &TokenStream2) -> TokenStream2 {
     }
 }
 
+struct ExpandEnv<'a> {
+    components: &'a BTreeMap<String, Vec<Token>>,
+    facade: &'a TokenStream2,
+    struct_attrs: &'a [Attribute],
+}
+
 fn expand_tokens(
     root: &Ident,
     visibility: &Visibility,
     tokens: &[Token],
+    env: &ExpandEnv<'_>,
     path: &mut Vec<Ident>,
     generated: &mut Vec<TokenStream2>,
-    facade: &TokenStream2,
-    struct_attrs: &[Attribute],
 ) -> (Vec<TokenStream2>, Vec<TokenStream2>, Vec<Type>) {
+    let facade = env.facade;
+    let struct_attrs = env.struct_attrs;
     let mut fields = Vec::new();
     let mut values = Vec::new();
     let mut types = Vec::new();
@@ -546,15 +632,8 @@ fn expand_tokens(
             Token::Group(name, tokens) => {
                 path.push(name.clone());
                 let group_name = group_name(root, path);
-                let (group_fields, group_values, group_types) = expand_tokens(
-                    root,
-                    visibility,
-                    tokens,
-                    path,
-                    generated,
-                    facade,
-                    struct_attrs,
-                );
+                let (group_fields, group_values, group_types) =
+                    expand_tokens(root, visibility, tokens, env, path, generated);
                 path.pop();
                 generated.push(quote! {
                     #[doc(hidden)]
@@ -568,13 +647,187 @@ fn expand_tokens(
                 values.push(quote!(#name: #group_name { #(#group_values)* },));
                 types.extend(group_types);
             }
+            Token::Component(name, tokens) => {
+                let (component_fields, _, component_types) =
+                    expand_tokens(name, visibility, tokens, env, &mut Vec::new(), generated);
+                generated.push(quote! {
+                    #[allow(missing_docs)]
+                    #(#struct_attrs)*
+                    #visibility struct #name {
+                        #(#component_fields)*
+                    }
+                });
+                types.extend(component_types);
+            }
+            Token::States(states) => {
+                let component_tokens = env
+                    .components
+                    .get(&states.component.to_string())
+                    .expect("states component was parsed before expansion");
+                let expanded = expand_states(
+                    root,
+                    visibility,
+                    states,
+                    component_tokens,
+                    path,
+                    env.facade,
+                    env.struct_attrs,
+                );
+                generated.push(expanded.generated);
+                fields.push(expanded.field);
+                values.push(expanded.value);
+                types.extend(expanded.types);
+            }
         }
     }
     (fields, values, types)
 }
 
+struct StateExpansion {
+    generated: TokenStream2,
+    field: TokenStream2,
+    value: TokenStream2,
+    types: Vec<Type>,
+}
+
+fn expand_states(
+    root: &Ident,
+    visibility: &Visibility,
+    states: &StateSet,
+    component_tokens: &[Token],
+    path: &[Ident],
+    facade: &TokenStream2,
+    struct_attrs: &[Attribute],
+) -> StateExpansion {
+    let state_set_name = format_ident!("{}{}States", root, pascal_case(&states.name));
+    let state_enum_name = format_ident!("{}{}State", root, pascal_case(&states.name));
+    let component = &states.component;
+    let state_fields = states.states.iter().map(|state| {
+        let name = &state.name;
+        quote!(pub #name: #component,)
+    });
+    let state_values = states.states.iter().map(|state| {
+        let name = &state.name;
+        let mut state_path = path.to_vec();
+        state_path.extend([states.name.clone(), state.name.clone()]);
+        let (values, _) = expand_token_values(
+            component,
+            component_tokens,
+            &mut state_path,
+            &mut Vec::new(),
+            facade,
+        );
+        quote!(#name: #component { #(#values)* },)
+    });
+    let state_variants = states
+        .states
+        .iter()
+        .map(|state| format_ident!("{}", pascal_case(&state.name)));
+    let state_get = states.states.iter().map(|state| {
+        let field = &state.name;
+        let variant = format_ident!("{}", pascal_case(&state.name));
+        quote!(#state_enum_name::#variant => &self.#field,)
+    });
+    let state_parents = states.states.iter().map(|state| {
+        let variant = format_ident!("{}", pascal_case(&state.name));
+        if let Some(parent) = &state.extends {
+            let parent = format_ident!("{}", pascal_case(parent));
+            quote!(#state_enum_name::#variant => Some(#state_enum_name::#parent),)
+        } else {
+            quote!(#state_enum_name::#variant => None,)
+        }
+    });
+    let mut types = Vec::new();
+    for state in &states.states {
+        let mut state_path = path.to_vec();
+        state_path.extend([states.name.clone(), state.name.clone()]);
+        let (_, next_types) = expand_token_values(
+            component,
+            component_tokens,
+            &mut state_path,
+            &mut Vec::new(),
+            facade,
+        );
+        types.extend(next_types);
+    }
+
+    let name = &states.name;
+    StateExpansion {
+        generated: quote! {
+            #[allow(missing_docs)]
+            #(#struct_attrs)*
+            #visibility struct #state_set_name {
+                #(#state_fields)*
+            }
+
+            #[allow(missing_docs)]
+            #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+            #visibility enum #state_enum_name {
+                #(#state_variants,)*
+            }
+
+            impl #state_enum_name {
+                #[allow(missing_docs)]
+                #visibility const fn parent(self) -> Option<Self> {
+                    match self {
+                        #(#state_parents)*
+                    }
+                }
+            }
+
+            impl #state_set_name {
+                #[allow(missing_docs)]
+                #visibility const fn get(&self, state: #state_enum_name) -> &#component {
+                    match state {
+                        #(#state_get)*
+                    }
+                }
+            }
+        },
+        field: quote!(pub #name: #state_set_name,),
+        value: quote!(#name: #state_set_name { #(#state_values)* },),
+        types,
+    }
+}
+
+fn expand_token_values(
+    root: &Ident,
+    tokens: &[Token],
+    source_path: &mut Vec<Ident>,
+    struct_path: &mut Vec<Ident>,
+    facade: &TokenStream2,
+) -> (Vec<TokenStream2>, Vec<Type>) {
+    let mut values = Vec::new();
+    let mut types = Vec::new();
+    for token in tokens {
+        match token {
+            Token::Value(name, ty) => {
+                let path = LitStr::new(&token_path(source_path, name), Span::call_site());
+                values.push(quote!(
+                    #name: <#ty as #facade::__private::TokenValue<S>>::read(source, #path)?,
+                ));
+                types.push(ty.as_ref().clone());
+            }
+            Token::Group(name, children) => {
+                source_path.push(name.clone());
+                struct_path.push(name.clone());
+                let group = group_name(root, struct_path);
+                let (group_values, group_types) =
+                    expand_token_values(root, children, source_path, struct_path, facade);
+                struct_path.pop();
+                source_path.pop();
+                values.push(quote!(#name: #group { #(#group_values)* },));
+                types.extend(group_types);
+            }
+            Token::Component(_, _) | Token::States(_) => {}
+        }
+    }
+    (values, types)
+}
+
 fn expand_reload(
     tokens: &[Token],
+    components: &BTreeMap<String, Vec<Token>>,
     path: &mut Vec<Ident>,
     facade: &TokenStream2,
 ) -> Vec<TokenStream2> {
@@ -600,9 +853,70 @@ fn expand_reload(
             }
             Token::Group(name, tokens) => {
                 path.push(name.clone());
-                assignments.extend(expand_reload(tokens, path, facade));
+                assignments.extend(expand_reload(tokens, components, path, facade));
                 path.pop();
             }
+            Token::Component(_, _) => {}
+            Token::States(states) => {
+                let component_tokens = components
+                    .get(&states.component.to_string())
+                    .expect("states component was parsed before expansion");
+                for state in &states.states {
+                    let mut source_path = path.clone();
+                    source_path.extend([states.name.clone(), state.name.clone()]);
+                    let self_path = if path.is_empty() {
+                        let name = &states.name;
+                        let state = &state.name;
+                        quote!(self.#name.#state)
+                    } else {
+                        let fields = path.iter();
+                        let name = &states.name;
+                        let state = &state.name;
+                        quote!(self.#(#fields).*.#name.#state)
+                    };
+                    assignments.extend(expand_component_reload(
+                        component_tokens,
+                        &mut source_path,
+                        &self_path,
+                        facade,
+                    ));
+                }
+            }
+        }
+    }
+    assignments
+}
+
+fn expand_component_reload(
+    tokens: &[Token],
+    source_path: &mut Vec<Ident>,
+    self_path: &TokenStream2,
+    facade: &TokenStream2,
+) -> Vec<TokenStream2> {
+    let mut assignments = Vec::new();
+    for token in tokens {
+        match token {
+            Token::Value(name, ty) => {
+                let path = LitStr::new(&token_path(source_path, name), Span::call_site());
+                assignments.push(quote!(
+                    #self_path.#name = <#ty as #facade::__private::TokenValue<S>>::read(
+                        source,
+                        #path,
+                    )?;
+                ));
+            }
+            Token::Group(name, children) => {
+                let nested_self = quote!(#self_path.#name);
+                source_path.push(name.clone());
+                assignments.extend(expand_component_reload(
+                    children,
+                    source_path,
+                    &nested_self,
+                    facade,
+                ));
+                source_path.pop();
+            }
+            Token::Component(_, _) | Token::States(_) => {}
         }
     }
     assignments
@@ -614,6 +928,20 @@ fn token_path(path: &[Ident], name: &Ident) -> String {
         .map(ToString::to_string)
         .collect::<Vec<_>>()
         .join(".")
+}
+
+fn pascal_case(name: &Ident) -> String {
+    name.to_string()
+        .split('_')
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            let Some(first) = chars.next() else {
+                return String::new();
+            };
+            first.to_ascii_uppercase().to_string() + chars.as_str()
+        })
+        .collect()
 }
 
 fn group_name(root: &Ident, path: &[Ident]) -> Ident {
