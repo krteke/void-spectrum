@@ -8,11 +8,16 @@ use core::convert::Infallible;
 use spectrum_resolver::resolve_theme;
 #[cfg(feature = "seed")]
 use spectrum_schema::ThemeSpec;
+#[cfg(feature = "toml")]
+use spectrum_theme::config::TomlThemeSource;
 use spectrum_theme::{
     __private::{ThemeValue, TokenSource},
     Color, FontStyle, FontWeight, Length, LengthUnit, LineHeight, Radius, ShadowLayer,
     ThemeBuildError, define_theme_tokens,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Delay(u16);
 
 define_theme_tokens! {
     pub struct AppTheme {
@@ -46,6 +51,14 @@ define_theme_tokens! {
             normal,
             hover extends normal,
             press_down extends hover,
+        }
+    }
+}
+
+define_theme_tokens! {
+    struct CustomConfigTheme {
+        motion {
+            delay: Delay,
         }
     }
 }
@@ -244,6 +257,22 @@ impl ThemeValue<LineHeightOnlySource> for LineHeight {
     }
 }
 
+#[cfg(feature = "toml")]
+impl ThemeValue<TomlThemeSource> for Delay {
+    fn read(source: &TomlThemeSource, path: &str) -> Result<Self, ThemeBuildError> {
+        source
+            .token_text(path)?
+            .parse()
+            .map(Self)
+            .map_err(
+                |error: core::num::ParseIntError| ThemeBuildError::InvalidTokenValue {
+                    path: path.to_owned(),
+                    message: error.to_string(),
+                },
+            )
+    }
+}
+
 #[test]
 fn builds_from_a_custom_token_source() {
     let theme = AppTheme::try_from_source(&StaticSource).expect("typed theme");
@@ -415,6 +444,48 @@ fn component_states_inherit_missing_resolved_theme_values() {
     assert_eq!(theme.button.hover.gap.to_string(), "4px");
     assert_eq!(theme.button.press_down.fg, Color::new(4, 5, 6));
     assert_eq!(theme.button.press_down.gap.to_string(), "4px");
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn component_states_load_from_contract_aware_toml() {
+    let source: TomlThemeSource = r##"
+seed = "#6750a4"
+
+[meta]
+mode = "light"
+
+[button.normal]
+fg = "{material.primary}"
+gap = "4px"
+
+[button.hover]
+fg = "#040506"
+"##
+    .parse()
+    .expect("TOML source");
+
+    let theme = ComponentStateTheme::try_from_source(&source).expect("typed theme");
+
+    assert_eq!(theme.button.normal.fg, Color::new(103, 80, 164));
+    assert_eq!(theme.button.hover.gap.to_string(), "4px");
+    assert_eq!(theme.button.press_down.fg, Color::new(4, 5, 6));
+    assert_eq!(theme.button.press_down.gap.to_string(), "4px");
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn custom_values_load_from_contract_aware_toml() {
+    let source: TomlThemeSource = "
+[motion]
+delay = 120
+"
+    .parse()
+    .expect("TOML source");
+
+    let theme = CustomConfigTheme::try_from_source(&source).expect("typed theme");
+
+    assert_eq!(theme.motion.delay, Delay(120));
 }
 
 #[cfg(feature = "seed")]

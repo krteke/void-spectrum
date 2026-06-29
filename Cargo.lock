@@ -2787,6 +2787,7 @@ dependencies = [
  "spectrum-resolver",
  "spectrum-schema",
  "thiserror 2.0.18",
+ "toml",
  "void-spectrum-macros",
 ]
 

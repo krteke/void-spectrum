@@ -255,6 +255,55 @@ let resolved = resolve_theme(&spec).unwrap();
 let theme = FullTheme::try_from_source(&resolved).unwrap();
 ```
 
+### Contract-Aware TOML Source
+
+With the `toml` feature, a generated contract can read TOML tables directly.
+The contract supplies field types, so the file does not need separate
+`[colors]`, `[lengths]`, or `[radii]` buckets:
+
+```rust
+use spectrum_theme::config::TomlThemeSource;
+
+let source: TomlThemeSource = r##"
+seed = "#6750a4"
+
+[meta]
+mode = "light"
+
+[button.normal]
+fg = "{material.primary}"
+bg = "{material.surface}"
+radius = "8px"
+
+[button.hover]
+bg = "{material.primary_container}"
+"##
+.parse()
+.unwrap();
+
+let theme = AppTheme::try_from_source(&source).unwrap();
+```
+
+For a state set such as `hover extends normal`, missing fields under
+`[button.hover]` fall back through the declared parent chain. Scalar values are
+parsed according to the generated field type. Same-type token references such
+as `fg = "{button.normal.fg}"` are supported; color values also support
+`{material.*}` roles when a seed is present.
+
+Shadow fields use a table at the token path:
+
+```toml
+[shadow.card]
+color = "#00000080"
+offset_x = "0px"
+offset_y = "2px"
+blur = "8px"
+spread = "0px"
+```
+
+Custom types can implement `ThemeValue<TomlThemeSource>` and read their raw
+scalar text through `source.token_text(path)`.
+
 ### Switching Themes at Runtime (reload)
 
 ```rust
@@ -267,7 +316,7 @@ theme.reload(&resolved_b).unwrap();
 
 ---
 
-## Path 2: TOML + build.rs
+## Path 2: Legacy TOML + build.rs
 
 ### Step 1: Create `theme.toml`
 

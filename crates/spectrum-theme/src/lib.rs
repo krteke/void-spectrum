@@ -13,6 +13,9 @@ pub use spectrum_macros::define_theme_tokens;
 #[cfg(feature = "ratatui")]
 pub use spectrum_ratatui as ratatui;
 
+#[cfg(feature = "toml")]
+pub mod config;
+
 /// Errors produced while constructing a generated typed theme.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ThemeBuildError {
@@ -33,6 +36,14 @@ pub enum ThemeBuildError {
     SeedFeatureDisabled {
         /// Material-bound token path.
         path: String,
+    },
+    /// A token exists but cannot be parsed as the requested value type.
+    #[error("invalid value for token '{path}': {message}")]
+    InvalidTokenValue {
+        /// Token path.
+        path: String,
+        /// Human-readable parse failure.
+        message: String,
     },
 }
 

@@ -250,6 +250,52 @@ let resolved = resolve_theme(&spec).unwrap();
 let theme = FullTheme::try_from_source(&resolved).unwrap();
 ```
 
+### Contract-Aware TOML Source
+
+启用 `toml` feature 后，生成契约可以直接读取 TOML 表结构。字段类型来自契约本身，
+因此配置文件不需要再拆成 `[colors]`、`[lengths]`、`[radii]` 这类固定分桶：
+
+```rust
+use spectrum_theme::config::TomlThemeSource;
+
+let source: TomlThemeSource = r##"
+seed = "#6750a4"
+
+[meta]
+mode = "light"
+
+[button.normal]
+fg = "{material.primary}"
+bg = "{material.surface}"
+radius = "8px"
+
+[button.hover]
+bg = "{material.primary_container}"
+"##
+.parse()
+.unwrap();
+
+let theme = AppTheme::try_from_source(&source).unwrap();
+```
+
+对于 `hover extends normal` 这样的状态集合，`[button.hover]` 中缺失的字段会沿声明的父状态链回退。
+标量值会按照生成字段的类型解析。同类型 token 引用，例如 `fg = "{button.normal.fg}"`，
+可以正常工作；颜色字段在存在 seed 时还支持 `{material.*}` 角色。
+
+阴影字段使用 token path 对应的表：
+
+```toml
+[shadow.card]
+color = "#00000080"
+offset_x = "0px"
+offset_y = "2px"
+blur = "8px"
+spread = "0px"
+```
+
+自定义类型可以实现 `ThemeValue<TomlThemeSource>`，并通过 `source.token_text(path)`
+读取原始标量文本。
+
 ### 运行时切换主题（reload）
 
 ```rust
@@ -262,7 +308,7 @@ theme.reload(&resolved_b).unwrap();
 
 ---
 
-## 路径二：TOML 文件 + build.rs
+## 路径二：Legacy TOML 文件 + build.rs
 
 ### 第一步：创建 `theme.toml`
 

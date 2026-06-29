@@ -16,7 +16,7 @@ default = ["seed"]
 seed = ["spectrum-palette/seed"]
 serde = ["spectrum-core/serde"]
 json = ["serde", "spectrum-schema/json"]
-toml = ["serde", "spectrum-schema/toml"]
+toml = ["serde", "spectrum-schema/toml", "dep:toml"]
 macros = ["dep:spectrum-macros"]
 iced = ["dep:spectrum-iced"]
 ratatui = ["dep:spectrum-ratatui"]
@@ -30,6 +30,7 @@ spectrum-ratatui = { workspace = true, optional = true }
 spectrum-resolver.workspace = true
 spectrum-schema.workspace = true
 thiserror.workspace = true
+toml = { workspace = true, optional = true }
 
 [build-dependencies]
 spectrum-codegen.workspace = true
