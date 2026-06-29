@@ -3,6 +3,10 @@ seed = "#6750a4"
 [meta]
 mode = "light"
 
+[file_button]
+fg = "#010203"
+gap = "2px"
+
 [button.normal]
 fg = "{material.primary}"
 gap = "4px"

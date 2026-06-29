@@ -5,7 +5,7 @@ use spectrum_macros::define_theme_tokens;
 extern crate self as spectrum_theme;
 
 #[doc(hidden)]
-pub mod __private {
+pub mod source {
     pub trait TokenSource {
         type Error;
 
@@ -54,7 +54,7 @@ struct Px(u16);
 
 struct PathSource;
 
-impl __private::TokenSource for PathSource {
+impl source::TokenSource for PathSource {
     type Error = core::convert::Infallible;
 }
 
@@ -66,7 +66,7 @@ enum PathError {
 
 struct InheritedPathSource;
 
-impl __private::TokenSource for InheritedPathSource {
+impl source::TokenSource for InheritedPathSource {
     type Error = PathError;
 
     fn is_missing(error: &Self::Error) -> bool {
@@ -76,7 +76,7 @@ impl __private::TokenSource for InheritedPathSource {
 
 struct InvalidHoverSource;
 
-impl __private::TokenSource for InvalidHoverSource {
+impl source::TokenSource for InvalidHoverSource {
     type Error = PathError;
 
     fn is_missing(error: &Self::Error) -> bool {
@@ -84,7 +84,7 @@ impl __private::TokenSource for InvalidHoverSource {
     }
 }
 
-impl __private::ThemeValue<PathSource> for Px {
+impl source::ThemeValue<PathSource> for Px {
     fn read(_: &PathSource, path: &str) -> Result<Self, core::convert::Infallible> {
         Ok(Px(match path {
             "button.normal.fg" => 1,
@@ -95,12 +95,16 @@ impl __private::ThemeValue<PathSource> for Px {
             "button.press_down.bg" => 30,
             "button.focus.fg" => 4,
             "button.focus.bg" => 40,
+            "plain_button.fg" => 5,
+            "plain_button.bg" => 50,
+            "toolbar.button.fg" => 6,
+            "toolbar.button.bg" => 60,
             _ => 0,
         }))
     }
 }
 
-impl __private::ThemeValue<InheritedPathSource> for Px {
+impl source::ThemeValue<InheritedPathSource> for Px {
     fn read(_: &InheritedPathSource, path: &str) -> Result<Self, PathError> {
         match path {
             "button.normal.fg" => Ok(Px(1)),
@@ -113,7 +117,7 @@ impl __private::ThemeValue<InheritedPathSource> for Px {
     }
 }
 
-impl __private::ThemeValue<InvalidHoverSource> for Px {
+impl source::ThemeValue<InvalidHoverSource> for Px {
     fn read(_: &InvalidHoverSource, path: &str) -> Result<Self, PathError> {
         match path {
             "button.normal.fg" => Ok(Px(1)),
@@ -151,6 +155,20 @@ define_theme_tokens! {
         }
         spacing {
             medium: Px,
+        }
+    }
+}
+
+define_theme_tokens! {
+    pub struct StatelessComponentTheme {
+        component PlainButtonTokens {
+            fg: Px,
+            bg: Px,
+        }
+
+        plain_button: PlainButtonTokens,
+        toolbar {
+            button: PlainButtonTokens,
         }
     }
 }
@@ -226,6 +244,16 @@ fn builds_component_state_sets_from_token_sources() {
     assert_eq!(theme.button.hover.bg.0, 20);
     assert_eq!(theme.button.press_down.fg.0, 3);
     assert_eq!(theme.button.focus.bg.0, 40);
+}
+
+#[test]
+fn builds_stateless_component_instances_from_token_sources() {
+    let theme = StatelessComponentTheme::try_from_source(&PathSource).expect("stateless theme");
+
+    assert_eq!(theme.plain_button.fg.0, 5);
+    assert_eq!(theme.plain_button.bg.0, 50);
+    assert_eq!(theme.toolbar.button.fg.0, 6);
+    assert_eq!(theme.toolbar.button.bg.0, 60);
 }
 
 #[test]

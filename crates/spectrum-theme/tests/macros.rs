@@ -11,9 +11,9 @@ use spectrum_schema::ThemeSpec;
 #[cfg(feature = "toml")]
 use spectrum_theme::config::TomlThemeSource;
 use spectrum_theme::{
-    __private::{ThemeValue, TokenSource},
     Color, FontStyle, FontWeight, Length, LengthUnit, LineHeight, Radius, ShadowLayer,
     ThemeBuildError, define_theme_tokens,
+    source::{ThemeValue, TokenSource},
 };
 
 #[cfg(feature = "toml")]
@@ -52,6 +52,20 @@ define_theme_tokens! {
             normal,
             hover extends normal,
             press_down extends hover,
+        }
+    }
+}
+
+define_theme_tokens! {
+    struct ComponentInstanceTheme {
+        component PlainButtonTokens {
+            fg: Color,
+            gap: Length,
+        }
+
+        button: PlainButtonTokens,
+        toolbar {
+            primary: PlainButtonTokens,
         }
     }
 }
@@ -420,6 +434,8 @@ fn file_contract_loads_embedded_values_and_supports_seed_override() {
 fn external_contract_file_loads_contract_aware_values() {
     let theme = ContractFileTheme::try_load().expect("contract theme");
 
+    assert_eq!(theme.file_button.fg, Color::new(1, 2, 3));
+    assert_eq!(theme.file_button.gap.to_string(), "2px");
     assert_eq!(theme.button.normal.fg, Color::new(103, 80, 164));
     assert_eq!(theme.button.hover.fg, Color::new(4, 5, 6));
     assert_eq!(theme.button.hover.gap.to_string(), "4px");
@@ -487,6 +503,29 @@ fg = "#040506"
     assert_eq!(theme.button.hover.gap.to_string(), "4px");
     assert_eq!(theme.button.press_down.fg, Color::new(4, 5, 6));
     assert_eq!(theme.button.press_down.gap.to_string(), "4px");
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn stateless_component_instances_load_from_contract_aware_toml() {
+    let source: TomlThemeSource = r##"
+[button]
+fg = "#010203"
+gap = "4px"
+
+[toolbar.primary]
+fg = "#040506"
+gap = "8px"
+"##
+    .parse()
+    .expect("TOML source");
+
+    let theme = ComponentInstanceTheme::try_from_source(&source).expect("typed theme");
+
+    assert_eq!(theme.button.fg, Color::new(1, 2, 3));
+    assert_eq!(theme.button.gap.to_string(), "4px");
+    assert_eq!(theme.toolbar.primary.fg, Color::new(4, 5, 6));
+    assert_eq!(theme.toolbar.primary.gap.to_string(), "8px");
 }
 
 #[cfg(feature = "toml")]

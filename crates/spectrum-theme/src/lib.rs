@@ -15,6 +15,7 @@ pub use spectrum_ratatui as ratatui;
 
 #[cfg(feature = "toml")]
 pub mod config;
+pub mod source;
 
 /// Errors produced while constructing a generated typed theme.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -52,27 +53,11 @@ pub mod __private {
     use super::{
         Color, FontStyle, FontWeight, Length, LineHeight, Radius, ShadowLayer, ThemeBuildError,
     };
+    use crate::source::{ThemeValue, TokenSource};
 
     pub use spectrum_palette::{MaterialColor, MaterialColors};
     pub use spectrum_resolver::{ColorBinding, ResolvedTheme};
     pub use spectrum_schema::{ThemeMeta, ThemeMode};
-
-    pub trait TokenSource {
-        type Error;
-
-        fn token<T>(&self, path: &str) -> Result<T, Self::Error>
-        where
-            T: ThemeValue<Self>,
-            Self: Sized,
-        {
-            T::read(self, path)
-        }
-
-        fn is_missing(error: &Self::Error) -> bool {
-            let _ = error;
-            false
-        }
-    }
 
     #[cfg(feature = "seed")]
     pub fn material_colors(
@@ -92,28 +77,6 @@ pub mod __private {
         Err(ThemeBuildError::SeedFeatureDisabled {
             path: path.to_owned(),
         })
-    }
-
-    pub trait ThemeValue<S: TokenSource>: Sized {
-        fn read(source: &S, path: &str) -> Result<Self, S::Error>;
-    }
-
-    pub fn read_inherited<T, S, const N: usize>(source: &S, paths: [&str; N]) -> Result<T, S::Error>
-    where
-        T: ThemeValue<S>,
-        S: TokenSource,
-    {
-        let mut missing = None;
-        for path in paths {
-            match source.token::<T>(path) {
-                Ok(value) => return Ok(value),
-                Err(error) if S::is_missing(&error) => {
-                    missing.get_or_insert(error);
-                }
-                Err(error) => return Err(error),
-            }
-        }
-        Err(missing.expect("inherited token lookup has at least one path"))
     }
 
     pub struct SeededTheme<'a> {

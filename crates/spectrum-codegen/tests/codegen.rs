@@ -51,10 +51,38 @@ fn generates_typed_contract_from_external_contract_and_values() {
 
     assert!(code.contains("pub struct ContractFileTheme"));
     assert!(code.contains("pub struct FileButtonTokens"));
+    assert!(code.contains("file_button"));
     assert!(code.contains("ContractFileThemeButtonStates"));
     assert!(code.contains("TomlThemeSource"));
     assert!(code.contains("try_load"));
     assert!(!code.contains("try_load_with_seed"));
+}
+
+#[test]
+fn expand_schema_supports_stateless_component_instances() {
+    let schema: ThemeSchema = syn::parse2(quote::quote!(
+        pub struct ComponentTheme {
+            component ButtonTokens {
+                fg: spectrum_theme::Color,
+                bg: spectrum_theme::Color,
+            }
+
+            button: ButtonTokens,
+            toolbar {
+                primary: ButtonTokens,
+            }
+        }
+    ))
+    .expect("valid schema");
+
+    let code = expand_schema(schema, None, &facade()).to_string();
+
+    assert!(code.contains("source :: TokenSource"));
+    assert!(code.contains("source :: ThemeValue"));
+    assert!(!code.contains("__private :: TokenSource"));
+    assert!(code.contains("pub button : ButtonTokens"));
+    assert!(code.contains("\"button.fg\""));
+    assert!(code.contains("\"toolbar.primary.bg\""));
 }
 
 #[test]

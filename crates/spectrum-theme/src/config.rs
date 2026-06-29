@@ -4,8 +4,9 @@ use core::str::FromStr;
 use std::collections::BTreeSet;
 
 use crate::{
-    __private::{MaterialColor, ThemeMode, ThemeValue, TokenSource, material_colors},
+    __private::{MaterialColor, ThemeMode, material_colors},
     Color, FontStyle, FontWeight, Length, LineHeight, Radius, ShadowLayer, ThemeBuildError,
+    source::{ThemeValue, TokenSource},
 };
 
 /// Errors produced while loading a TOML contract-aware source.

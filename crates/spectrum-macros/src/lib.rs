@@ -55,8 +55,9 @@ use syn::{Ident, parse_macro_input};
 ///
 /// # Reusable component state sets
 ///
-/// `component` defines one reusable token struct. `states` instantiates that
-/// struct for named UI states, so every state has the same Rust type:
+/// `component` defines one reusable token struct. A contract can instantiate it
+/// directly for stateless tokens, or use `states` for named UI states where
+/// every state has the same Rust type:
 ///
 /// ```ignore
 /// use spectrum_theme::{define_theme_tokens, Color};
@@ -69,7 +70,9 @@ use syn::{Ident, parse_macro_input};
 ///             bg: Color,
 ///         }
 ///
-///         states button: ButtonTokens {
+///         button: ButtonTokens,
+///
+///         states nav_button: ButtonTokens {
 ///             normal,
 ///             hover extends normal,
 ///             press_down extends hover,
@@ -79,17 +82,18 @@ use syn::{Ident, parse_macro_input};
 /// }
 /// ```
 ///
-/// This generates `ButtonTokens`, `MyThemeButtonStates`, and
-/// `MyThemeButtonState`. The state container exposes `get(state)`, and the
-/// state enum exposes `parent()` for declared `extends` relationships. Parent
-/// states must be declared in the same state set; duplicate states and
-/// inheritance cycles are rejected while parsing the contract.
+/// This generates `ButtonTokens`, a `button: ButtonTokens` field,
+/// `MyThemeNavButtonStates`, and `MyThemeNavButtonState`. The state container
+/// exposes `get(state)`, and the state enum exposes `parent()` for declared
+/// `extends` relationships. Parent states must be declared in the same state
+/// set; duplicate states and inheritance cycles are rejected while parsing the
+/// contract.
 ///
 /// # Constructing from a token source
 ///
 /// The generated struct has `try_from_source` for one-shot construction and
 /// `reload` for in-place updates from any type that implements
-/// `spectrum_theme::__private::TokenSource` plus `ThemeValue<Source>` for each
+/// `spectrum_theme::source::TokenSource` plus `ThemeValue<Source>` for each
 /// token value type used by the contract.
 #[proc_macro]
 pub fn define_theme_tokens(input: TokenStream) -> TokenStream {

@@ -109,10 +109,11 @@ define_theme_tokens! {
 }
 ```
 
-### Reusable Component State Sets
+### Reusable Components and State Sets
 
-Use `component` when several UI states share the same internal fields. The
-component is generated once, and every state field uses that same Rust type:
+Use `component` once to define a reusable token struct. It can be instantiated
+directly for stateless tokens, or through `states` when several UI states share
+the same internal fields:
 
 ```rust
 use spectrum_theme::{define_theme_tokens, Color, Radius};
@@ -127,7 +128,9 @@ define_theme_tokens! {
             radius: Radius,
         }
 
-        states button: ButtonTokens {
+        button: ButtonTokens,
+
+        states nav_button: ButtonTokens {
             normal,
             hover extends normal,
             press_down extends hover,
@@ -147,14 +150,14 @@ pub struct ButtonTokens {
     pub radius: Radius,
 }
 
-pub struct AppThemeButtonStates {
+pub struct AppThemeNavButtonStates {
     pub normal: ButtonTokens,
     pub hover: ButtonTokens,
     pub press_down: ButtonTokens,
     pub focus: ButtonTokens,
 }
 
-pub enum AppThemeButtonState {
+pub enum AppThemeNavButtonState {
     Normal,
     Hover,
     PressDown,
@@ -162,22 +165,27 @@ pub enum AppThemeButtonState {
 }
 ```
 
+`theme.button` is a plain `ButtonTokens` for stateless elements. The state
+fields, such as `theme.nav_button.normal` and `theme.nav_button.hover`, are also
+`ButtonTokens`.
+
 State lookup and declared state relationships are available at runtime:
 
 ```rust
-let hover = theme.button.get(AppThemeButtonState::Hover);
-let parent = AppThemeButtonState::PressDown.parent();
+let hover = theme.nav_button.get(AppThemeNavButtonState::Hover);
+let parent = AppThemeNavButtonState::PressDown.parent();
 
-assert_eq!(parent, Some(AppThemeButtonState::Hover));
+assert_eq!(parent, Some(AppThemeNavButtonState::Hover));
 ```
 
 The generated token paths are still explicit:
 
 ```text
-button.normal.fg
-button.hover.fg
-button.press_down.fg
-button.focus.fg
+button.fg
+nav_button.normal.fg
+nav_button.hover.fg
+nav_button.press_down.fg
+nav_button.focus.fg
 ```
 
 `extends` records the state relationship for UI code and controls source lookup
@@ -190,7 +198,7 @@ parser.
 ### Building an Instance at Runtime
 
 ```rust
-use spectrum_theme::__private::*;
+use spectrum_theme::source::{ThemeValue, TokenSource};
 use std::convert::Infallible;
 
 // ① Implement a TokenSource
@@ -238,10 +246,12 @@ impl ThemeValue<MySource> for ShadowLayer {
 let theme = FullTheme::try_from_source(&MySource).unwrap();
 ```
 
-### Using ResolvedTheme
+### Legacy: Using ResolvedTheme
 
-`ResolvedTheme` is the output of the resolver and already supports the built-in
-theme value types:
+`ResolvedTheme` is the output of the fixed `ThemeSpec` resolver and already
+supports the built-in theme value types. This path is useful for legacy flat
+TOML and resolver tests; its schema is fixed, so it cannot carry user-defined
+token types. Prefer the contract-aware source in the next section for new code:
 
 ```rust
 use spectrum_schema::ThemeSpec;
@@ -331,7 +341,9 @@ pub struct AppTheme {
         radius: spectrum_theme::Radius,
     }
 
-    states button: ButtonTokens {
+    button: ButtonTokens,
+
+    states button_state: ButtonTokens {
         normal,
         hover extends normal,
         press_down extends hover,
@@ -347,12 +359,17 @@ seed = "#6750a4"
 [meta]
 mode = "light"
 
-[button.normal]
+[button]
 fg = "{material.primary}"
 bg = "{material.surface}"
 radius = "8px"
 
-[button.hover]
+[button_state.normal]
+fg = "{material.primary}"
+bg = "{material.surface}"
+radius = "8px"
+
+[button_state.hover]
 bg = "{material.primary_container}"
 ```
 
@@ -743,7 +760,7 @@ spread = "0px"
 Built-in types (`Color`, `Length`, etc.) are not closed. You can add your own token types:
 
 ```rust
-use spectrum_theme::__private::{ThemeValue, TokenSource};
+use spectrum_theme::source::{ThemeValue, TokenSource};
 
 // ① Define your type
 #[derive(Debug, Clone, Copy)]

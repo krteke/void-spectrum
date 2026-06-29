@@ -5,6 +5,8 @@ pub struct ContractFileTheme {
         gap: spectrum_theme::Length,
     }
 
+    file_button: FileButtonTokens,
+
     states button: FileButtonTokens {
         normal,
         hover extends normal,

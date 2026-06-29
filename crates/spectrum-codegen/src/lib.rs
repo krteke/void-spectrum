@@ -361,22 +361,22 @@ fn expand_schema_inner(
         }
         impl #name {
             #[allow(missing_docs)]
-            #visibility fn try_from_source<S: #facade::__private::TokenSource>(
+            #visibility fn try_from_source<S: #facade::source::TokenSource>(
                 source: &S,
             ) -> Result<Self, S::Error>
             where
-                #(#types: #facade::__private::ThemeValue<S>,)*
+                #(#types: #facade::source::ThemeValue<S>,)*
             {
                 Ok(Self { #(#values)* })
             }
 
             #[allow(missing_docs)]
-            #visibility fn reload<S: #facade::__private::TokenSource>(
+            #visibility fn reload<S: #facade::source::TokenSource>(
                 &mut self,
                 source: &S,
             ) -> Result<(), S::Error>
             where
-                #(#types: #facade::__private::ThemeValue<S>,)*
+                #(#types: #facade::source::ThemeValue<S>,)*
             {
                 #(#reload_assignments)*
                 Ok(())
@@ -823,12 +823,30 @@ fn expand_tokens(
     for token in tokens {
         match token {
             Token::Value(name, ty) => {
-                let token_path = LitStr::new(&token_path(path, name), Span::call_site());
                 fields.push(quote!(pub #name: #ty,));
-                types.push(ty.as_ref().clone());
-                values.push(quote!(
-                    #name: source.token::<#ty>(#token_path)?,
-                ));
+                if let Some((component, component_tokens)) =
+                    component_type(ty.as_ref(), env.components)
+                {
+                    let mut source_path = path.clone();
+                    source_path.push(name.clone());
+                    let (component_values, component_types) = expand_token_values(
+                        component,
+                        component_tokens,
+                        &mut source_path,
+                        &mut Vec::new(),
+                        env.components,
+                        env.facade,
+                        None,
+                    );
+                    values.push(quote!(#name: #component { #(#component_values)* },));
+                    types.extend(component_types);
+                } else {
+                    let token_path = LitStr::new(&token_path(path, name), Span::call_site());
+                    types.push(ty.as_ref().clone());
+                    values.push(quote!(
+                        #name: source.token::<#ty>(#token_path)?,
+                    ));
+                }
             }
             Token::Group(name, tokens) => {
                 path.push(name.clone());
@@ -865,15 +883,7 @@ fn expand_tokens(
                     .components
                     .get(&states.component.to_string())
                     .expect("states component was parsed before expansion");
-                let expanded = expand_states(
-                    root,
-                    visibility,
-                    states,
-                    component_tokens,
-                    path,
-                    env.facade,
-                    env.struct_attrs,
-                );
+                let expanded = expand_states(root, visibility, states, component_tokens, path, env);
                 generated.push(expanded.generated);
                 fields.push(expanded.field);
                 values.push(expanded.value);
@@ -897,9 +907,9 @@ fn expand_states(
     states: &StateSet,
     component_tokens: &[Token],
     path: &[Ident],
-    facade: &TokenStream2,
-    struct_attrs: &[Attribute],
+    env: &ExpandEnv<'_>,
 ) -> StateExpansion {
+    let struct_attrs = env.struct_attrs;
     let state_set_name = format_ident!("{}{}States", root, pascal_case(&states.name));
     let state_enum_name = format_ident!("{}{}State", root, pascal_case(&states.name));
     let component = &states.component;
@@ -917,7 +927,8 @@ fn expand_states(
             component_tokens,
             &mut state_path,
             &mut Vec::new(),
-            facade,
+            env.components,
+            env.facade,
             Some(&inherited_bases),
         );
         quote!(#name: #component { #(#values)* },)
@@ -949,7 +960,8 @@ fn expand_states(
             component_tokens,
             &mut state_path,
             &mut Vec::new(),
-            facade,
+            env.components,
+            env.facade,
             None,
         );
         types.extend(next_types);
@@ -1001,6 +1013,7 @@ fn expand_token_values(
     tokens: &[Token],
     source_path: &mut Vec<Ident>,
     struct_path: &mut Vec<Ident>,
+    components: &BTreeMap<String, Vec<Token>>,
     facade: &TokenStream2,
     inherited_bases: Option<&[Vec<Ident>]>,
 ) -> (Vec<TokenStream2>, Vec<Type>) {
@@ -1009,15 +1022,35 @@ fn expand_token_values(
     for token in tokens {
         match token {
             Token::Value(name, ty) => {
-                let path = LitStr::new(&token_path(source_path, name), Span::call_site());
-                let value = if let Some(bases) = inherited_bases.filter(|bases| bases.len() > 1) {
-                    let paths = inherited_path_literals(bases, struct_path, name);
-                    quote!(#facade::__private::read_inherited(source, [#(#paths),*])?)
+                if let Some((component, component_tokens)) = component_type(ty.as_ref(), components)
+                {
+                    source_path.push(name.clone());
+                    struct_path.push(name.clone());
+                    let (component_values, component_types) = expand_token_values(
+                        component,
+                        component_tokens,
+                        source_path,
+                        struct_path,
+                        components,
+                        facade,
+                        inherited_bases,
+                    );
+                    struct_path.pop();
+                    source_path.pop();
+                    values.push(quote!(#name: #component { #(#component_values)* },));
+                    types.extend(component_types);
                 } else {
-                    quote!(source.token::<#ty>(#path)?)
-                };
-                values.push(quote!(#name: #value,));
-                types.push(ty.as_ref().clone());
+                    let path = LitStr::new(&token_path(source_path, name), Span::call_site());
+                    let value = if let Some(bases) = inherited_bases.filter(|bases| bases.len() > 1)
+                    {
+                        let paths = inherited_path_literals(bases, struct_path, name);
+                        quote!(#facade::source::read_inherited(source, [#(#paths),*])?)
+                    } else {
+                        quote!(source.token::<#ty>(#path)?)
+                    };
+                    values.push(quote!(#name: #value,));
+                    types.push(ty.as_ref().clone());
+                }
             }
             Token::Group(name, children) => {
                 source_path.push(name.clone());
@@ -1028,6 +1061,7 @@ fn expand_token_values(
                     children,
                     source_path,
                     struct_path,
+                    components,
                     facade,
                     inherited_bases,
                 );
@@ -1052,8 +1086,6 @@ fn expand_reload(
     for token in tokens {
         match token {
             Token::Value(name, ty) => {
-                let token_path = LitStr::new(&token_path(path, name), Span::call_site());
-
                 let self_path = if path.is_empty() {
                     quote!(self.#name)
                 } else {
@@ -1061,9 +1093,24 @@ fn expand_reload(
                     quote!(self.#(#fields).*.#name)
                 };
 
-                assignments.push(quote!(
-                    #self_path = source.token::<#ty>(#token_path)?;
-                ));
+                if let Some((_, component_tokens)) = component_type(ty.as_ref(), components) {
+                    let mut source_path = path.clone();
+                    source_path.push(name.clone());
+                    assignments.extend(expand_component_reload(
+                        component_tokens,
+                        &mut source_path,
+                        &mut Vec::new(),
+                        &self_path,
+                        components,
+                        facade,
+                        None,
+                    ));
+                } else {
+                    let token_path = LitStr::new(&token_path(path, name), Span::call_site());
+                    assignments.push(quote!(
+                        #self_path = source.token::<#ty>(#token_path)?;
+                    ));
+                }
             }
             Token::Group(name, tokens) => {
                 path.push(name.clone());
@@ -1094,6 +1141,7 @@ fn expand_reload(
                         &mut source_path,
                         &mut Vec::new(),
                         &self_path,
+                        components,
                         facade,
                         Some(&inherited_bases),
                     ));
@@ -1109,6 +1157,7 @@ fn expand_component_reload(
     source_path: &mut Vec<Ident>,
     struct_path: &mut Vec<Ident>,
     self_path: &TokenStream2,
+    components: &BTreeMap<String, Vec<Token>>,
     facade: &TokenStream2,
     inherited_bases: Option<&[Vec<Ident>]>,
 ) -> Vec<TokenStream2> {
@@ -1116,14 +1165,32 @@ fn expand_component_reload(
     for token in tokens {
         match token {
             Token::Value(name, ty) => {
-                let path = LitStr::new(&token_path(source_path, name), Span::call_site());
-                let value = if let Some(bases) = inherited_bases.filter(|bases| bases.len() > 1) {
-                    let paths = inherited_path_literals(bases, struct_path, name);
-                    quote!(#facade::__private::read_inherited(source, [#(#paths),*])?)
+                if let Some((_, component_tokens)) = component_type(ty.as_ref(), components) {
+                    let nested_self = quote!(#self_path.#name);
+                    source_path.push(name.clone());
+                    struct_path.push(name.clone());
+                    assignments.extend(expand_component_reload(
+                        component_tokens,
+                        source_path,
+                        struct_path,
+                        &nested_self,
+                        components,
+                        facade,
+                        inherited_bases,
+                    ));
+                    struct_path.pop();
+                    source_path.pop();
                 } else {
-                    quote!(source.token::<#ty>(#path)?)
-                };
-                assignments.push(quote!(#self_path.#name = #value;));
+                    let path = LitStr::new(&token_path(source_path, name), Span::call_site());
+                    let value = if let Some(bases) = inherited_bases.filter(|bases| bases.len() > 1)
+                    {
+                        let paths = inherited_path_literals(bases, struct_path, name);
+                        quote!(#facade::source::read_inherited(source, [#(#paths),*])?)
+                    } else {
+                        quote!(source.token::<#ty>(#path)?)
+                    };
+                    assignments.push(quote!(#self_path.#name = #value;));
+                }
             }
             Token::Group(name, children) => {
                 let nested_self = quote!(#self_path.#name);
@@ -1134,6 +1201,7 @@ fn expand_component_reload(
                     source_path,
                     struct_path,
                     &nested_self,
+                    components,
                     facade,
                     inherited_bases,
                 ));
@@ -1144,6 +1212,26 @@ fn expand_component_reload(
         }
     }
     assignments
+}
+
+fn component_type<'a>(
+    ty: &'a Type,
+    components: &'a BTreeMap<String, Vec<Token>>,
+) -> Option<(&'a Ident, &'a [Token])> {
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    if path.qself.is_some() || path.path.segments.len() != 1 {
+        return None;
+    }
+    let segment = path.path.segments.first()?;
+    if !matches!(segment.arguments, syn::PathArguments::None) {
+        return None;
+    }
+    let ident = &segment.ident;
+    components
+        .get(&ident.to_string())
+        .map(|tokens| (ident, tokens.as_slice()))
 }
 
 fn state_source_bases(states: &StateSet, state: &StateVariant, path: &[Ident]) -> Vec<Vec<Ident>> {

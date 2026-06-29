@@ -108,10 +108,10 @@ define_theme_tokens! {
 }
 ```
 
-### 可复用组件状态集合
+### 可复用组件与状态集合
 
-当多个 UI 状态拥有相同内部字段时，使用 `component` 定义一次组件令牌结构，再用
-`states` 为不同状态实例化同一个 Rust 类型：
+使用 `component` 定义一次组件令牌结构后，可以直接实例化为无状态 token，也可以通过
+`states` 为不同 UI 状态实例化同一个 Rust 类型：
 
 ```rust
 use spectrum_theme::{define_theme_tokens, Color, Radius};
@@ -126,7 +126,9 @@ define_theme_tokens! {
             radius: Radius,
         }
 
-        states button: ButtonTokens {
+        button: ButtonTokens,
+
+        states nav_button: ButtonTokens {
             normal,
             hover extends normal,
             press_down extends hover,
@@ -146,14 +148,14 @@ pub struct ButtonTokens {
     pub radius: Radius,
 }
 
-pub struct AppThemeButtonStates {
+pub struct AppThemeNavButtonStates {
     pub normal: ButtonTokens,
     pub hover: ButtonTokens,
     pub press_down: ButtonTokens,
     pub focus: ButtonTokens,
 }
 
-pub enum AppThemeButtonState {
+pub enum AppThemeNavButtonState {
     Normal,
     Hover,
     PressDown,
@@ -161,22 +163,26 @@ pub enum AppThemeButtonState {
 }
 ```
 
+`theme.button` 是普通 `ButtonTokens`，适合无状态元素。`theme.nav_button.normal`、
+`theme.nav_button.hover` 等字段同样是 `ButtonTokens`，适合需要状态关系的元素。
+
 运行时可以通过状态枚举访问，并读取声明的状态关系：
 
 ```rust
-let hover = theme.button.get(AppThemeButtonState::Hover);
-let parent = AppThemeButtonState::PressDown.parent();
+let hover = theme.nav_button.get(AppThemeNavButtonState::Hover);
+let parent = AppThemeNavButtonState::PressDown.parent();
 
-assert_eq!(parent, Some(AppThemeButtonState::Hover));
+assert_eq!(parent, Some(AppThemeNavButtonState::Hover));
 ```
 
 生成器读取的令牌路径仍然是显式路径：
 
 ```text
-button.normal.fg
-button.hover.fg
-button.press_down.fg
-button.focus.fg
+button.fg
+nav_button.normal.fg
+nav_button.hover.fg
+nav_button.press_down.fg
+nav_button.focus.fg
 ```
 
 `extends` 既记录状态关系，也控制 source 读取时的回退顺序。如果 `press_down` 缺少某个
@@ -186,7 +192,7 @@ button.focus.fg
 ### 运行时构造实例
 
 ```rust
-use spectrum_theme::__private::*;
+use spectrum_theme::source::{ThemeValue, TokenSource};
 use std::convert::Infallible;
 
 // ① 实现一个 TokenSource
@@ -234,9 +240,11 @@ impl ThemeValue<MySource> for ShadowLayer {
 let theme = FullTheme::try_from_source(&MySource).unwrap();
 ```
 
-### 搭配 ResolvedTheme
+### Legacy：搭配 ResolvedTheme
 
-`ResolvedTheme` 是 resolver 的输出，内部已支持内置主题值类型：
+`ResolvedTheme` 是固定 `ThemeSpec` resolver 的输出，内部已支持内置主题值类型。
+这条路径适合旧的 flat TOML 和 resolver 测试；它的 schema 是固定的，不能承载用户自定义
+token 类型。新代码优先使用下一节的 contract-aware source：
 
 ```rust
 use spectrum_schema::ThemeSpec;
@@ -323,7 +331,9 @@ pub struct AppTheme {
         radius: spectrum_theme::Radius,
     }
 
-    states button: ButtonTokens {
+    button: ButtonTokens,
+
+    states button_state: ButtonTokens {
         normal,
         hover extends normal,
         press_down extends hover,
@@ -339,12 +349,17 @@ seed = "#6750a4"
 [meta]
 mode = "light"
 
-[button.normal]
+[button]
 fg = "{material.primary}"
 bg = "{material.surface}"
 radius = "8px"
 
-[button.hover]
+[button_state.normal]
+fg = "{material.primary}"
+bg = "{material.surface}"
+radius = "8px"
+
+[button_state.hover]
 bg = "{material.primary_container}"
 ```
 
@@ -733,7 +748,7 @@ spread = "0px"
 内置类型（`Color`、`Length` 等）并非封闭的。可以添加你自己的令牌类型：
 
 ```rust
-use spectrum_theme::__private::{ThemeValue, TokenSource};
+use spectrum_theme::source::{ThemeValue, TokenSource};
 
 // ① 定义你的类型
 #[derive(Debug, Clone, Copy)]
