@@ -9,24 +9,32 @@ pub mod __private {
     pub trait TokenSource {
         type Error;
 
+        fn token<T>(&self, path: &str) -> Result<T, Self::Error>
+        where
+            T: ThemeValue<Self>,
+            Self: Sized,
+        {
+            T::read(self, path)
+        }
+
         fn is_missing(error: &Self::Error) -> bool {
             let _ = error;
             false
         }
     }
 
-    pub trait TokenValue<S: TokenSource>: Sized {
+    pub trait ThemeValue<S: TokenSource>: Sized {
         fn read(source: &S, path: &str) -> Result<Self, S::Error>;
     }
 
     pub fn read_inherited<T, S, const N: usize>(source: &S, paths: [&str; N]) -> Result<T, S::Error>
     where
-        T: TokenValue<S>,
+        T: ThemeValue<S>,
         S: TokenSource,
     {
         let mut missing = None;
         for path in paths {
-            match T::read(source, path) {
+            match source.token::<T>(path) {
                 Ok(value) => return Ok(value),
                 Err(error) if S::is_missing(&error) => {
                     missing.get_or_insert(error);
@@ -76,7 +84,7 @@ impl __private::TokenSource for InvalidHoverSource {
     }
 }
 
-impl __private::TokenValue<PathSource> for Px {
+impl __private::ThemeValue<PathSource> for Px {
     fn read(_: &PathSource, path: &str) -> Result<Self, core::convert::Infallible> {
         Ok(Px(match path {
             "button.normal.fg" => 1,
@@ -92,7 +100,7 @@ impl __private::TokenValue<PathSource> for Px {
     }
 }
 
-impl __private::TokenValue<InheritedPathSource> for Px {
+impl __private::ThemeValue<InheritedPathSource> for Px {
     fn read(_: &InheritedPathSource, path: &str) -> Result<Self, PathError> {
         match path {
             "button.normal.fg" => Ok(Px(1)),
@@ -105,7 +113,7 @@ impl __private::TokenValue<InheritedPathSource> for Px {
     }
 }
 
-impl __private::TokenValue<InvalidHoverSource> for Px {
+impl __private::ThemeValue<InvalidHoverSource> for Px {
     fn read(_: &InvalidHoverSource, path: &str) -> Result<Self, PathError> {
         match path {
             "button.normal.fg" => Ok(Px(1)),

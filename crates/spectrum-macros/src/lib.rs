@@ -89,7 +89,8 @@ use syn::{Ident, parse_macro_input};
 ///
 /// The generated struct has `try_from_source` for one-shot construction and
 /// `reload` for in-place updates from any type that implements
-/// `spectrum_theme::__private::TokenSource` and the per-type `*Source` traits.
+/// `spectrum_theme::__private::TokenSource` plus `ThemeValue<Source>` for each
+/// token value type used by the contract.
 #[proc_macro]
 pub fn define_theme_tokens(input: TokenStream) -> TokenStream {
     let schema = parse_macro_input!(input as ThemeSchema);

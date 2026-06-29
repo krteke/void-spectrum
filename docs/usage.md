@@ -197,40 +197,40 @@ use std::convert::Infallible;
 struct MySource;
 
 impl TokenSource for MySource { type Error = Infallible; }
-impl ColorSource for MySource {
-    fn color(&self, _: &str) -> Result<Color, Self::Error> {
+impl ThemeValue<MySource> for Color {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok(Color::new(30, 30, 46))
     }
 }
-impl LengthSource for MySource {
-    fn length(&self, _: &str) -> Result<Length, Self::Error> {
+impl ThemeValue<MySource> for Length {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok("8px".parse().unwrap())
     }
 }
-impl RadiusSource for MySource {
-    fn radius(&self, _: &str) -> Result<Radius, Self::Error> {
+impl ThemeValue<MySource> for Radius {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok("12px".parse().unwrap())
     }
 }
-impl FontWeightSource for MySource {
-    fn font_weight(&self, _: &str) -> Result<FontWeight, Self::Error> {
+impl ThemeValue<MySource> for FontWeight {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok(FontWeight::new(450).unwrap())
     }
 }
-impl FontStyleSource for MySource {
-    fn font_style(&self, _: &str) -> Result<FontStyle, Self::Error> {
+impl ThemeValue<MySource> for FontStyle {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok(FontStyle::Normal)
     }
 }
-impl LineHeightSource for MySource {
-    fn line_height(&self, _: &str) -> Result<LineHeight, Self::Error> {
+impl ThemeValue<MySource> for LineHeight {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok("1.5".parse().unwrap())
     }
 }
-impl ShadowSource for MySource {
-    fn shadow(&self, _: &str) -> Result<ShadowLayer, Self::Error> {
+impl ThemeValue<MySource> for ShadowLayer {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         let px = |v| Length::new(v, LengthUnit::Px).unwrap();
-        ShadowLayer::new(Color::new(0,0,0), px(0.0), px(2.0), px(8.0), px(0.0)).unwrap()
+        Ok(ShadowLayer::new(Color::new(0,0,0), px(0.0), px(2.0), px(8.0), px(0.0)).unwrap())
     }
 }
 
@@ -240,7 +240,8 @@ let theme = FullTheme::try_from_source(&MySource).unwrap();
 
 ### Using ResolvedTheme
 
-`ResolvedTheme` is the output of the resolver and already implements all `*Source` traits:
+`ResolvedTheme` is the output of the resolver and already supports the built-in
+theme value types:
 
 ```rust
 use spectrum_schema::ThemeSpec;
@@ -427,6 +428,9 @@ Every generated struct has these methods:
 | `try_load` | `fn try_load() -> Result<Self, ThemeBuildError>` | build.rs path |
 | `try_load_with_seed` | `fn try_load_with_seed(seed: Color) -> Result<Self, ThemeBuildError>` | build.rs path |
 | `try_set_seed` | `fn try_set_seed(&mut self, seed: Color) -> Result<(), ThemeBuildError>` | build.rs path |
+
+`try_from_source` and `reload` also require every token value type in the
+contract to implement `ThemeValue<S>` for the provided source.
 
 ```rust
 // ─── Inline DSL path (no embedded data) ───
@@ -619,25 +623,13 @@ spread = "0px"
 Built-in types (`Color`, `Length`, etc.) are not closed. You can add your own token types:
 
 ```rust
-use spectrum_theme::__private::{TokenSource, TokenValue};
+use spectrum_theme::__private::{ThemeValue, TokenSource};
 
 // ① Define your type
 #[derive(Debug, Clone, Copy)]
 pub struct Padding(pub u16);
 
-// ② Declare the Source capability it needs
-pub trait PaddingSource: TokenSource {
-    fn padding(&self, path: &str) -> Result<Padding, Self::Error>;
-}
-
-// ③ Teach the system how to read it from a Source
-impl<S: PaddingSource> TokenValue<S> for Padding {
-    fn read(source: &S, path: &str) -> Result<Self, S::Error> {
-        source.padding(path)
-    }
-}
-
-// ④ Use it in the DSL
+// ② Use it in the DSL
 define_theme_tokens! {
     pub struct CustomTheme {
         spacing {
@@ -646,13 +638,12 @@ define_theme_tokens! {
     }
 }
 
-// ⑤ Your Source implements both standard and custom traits
+// ③ Teach one Source how to provide it
 struct MySource;
 
 impl TokenSource for MySource { type Error = Infallible; }
-impl ColorSource for MySource { ... }
-impl PaddingSource for MySource {
-    fn padding(&self, _: &str) -> Result<Padding, Self::Error> {
+impl ThemeValue<MySource> for Padding {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok(Padding(12))
     }
 }
@@ -661,7 +652,9 @@ let theme = CustomTheme::try_from_source(&MySource).unwrap();
 assert_eq!(theme.spacing.pad.0, 12);
 ```
 
-> **Pattern**: every custom type needs a pair—a `XxxSource` trait (declares that a Source can provide this value) + `impl TokenValue<S> for Xxx` (declares how the type reads from a Source). This is the same pattern as the built-in `ColorSource` + `impl TokenValue<S> for Color`.
+> **Pattern**: every value type is connected to a concrete source with
+> `impl ThemeValue<MySource> for MyValue`. The generated code only calls
+> `source.token::<MyValue>("path")`.
 
 ---
 

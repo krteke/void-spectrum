@@ -193,40 +193,40 @@ use std::convert::Infallible;
 struct MySource;
 
 impl TokenSource for MySource { type Error = Infallible; }
-impl ColorSource for MySource {
-    fn color(&self, _: &str) -> Result<Color, Self::Error> {
+impl ThemeValue<MySource> for Color {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok(Color::new(30, 30, 46))
     }
 }
-impl LengthSource for MySource {
-    fn length(&self, _: &str) -> Result<Length, Self::Error> {
+impl ThemeValue<MySource> for Length {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok("8px".parse().unwrap())
     }
 }
-impl RadiusSource for MySource {
-    fn radius(&self, _: &str) -> Result<Radius, Self::Error> {
+impl ThemeValue<MySource> for Radius {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok("12px".parse().unwrap())
     }
 }
-impl FontWeightSource for MySource {
-    fn font_weight(&self, _: &str) -> Result<FontWeight, Self::Error> {
+impl ThemeValue<MySource> for FontWeight {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok(FontWeight::new(450).unwrap())
     }
 }
-impl FontStyleSource for MySource {
-    fn font_style(&self, _: &str) -> Result<FontStyle, Self::Error> {
+impl ThemeValue<MySource> for FontStyle {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok(FontStyle::Normal)
     }
 }
-impl LineHeightSource for MySource {
-    fn line_height(&self, _: &str) -> Result<LineHeight, Self::Error> {
+impl ThemeValue<MySource> for LineHeight {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok("1.5".parse().unwrap())
     }
 }
-impl ShadowSource for MySource {
-    fn shadow(&self, _: &str) -> Result<ShadowLayer, Self::Error> {
+impl ThemeValue<MySource> for ShadowLayer {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         let px = |v| Length::new(v, LengthUnit::Px).unwrap();
-        ShadowLayer::new(Color::new(0,0,0), px(0.0), px(2.0), px(8.0), px(0.0)).unwrap()
+        Ok(ShadowLayer::new(Color::new(0,0,0), px(0.0), px(2.0), px(8.0), px(0.0)).unwrap())
     }
 }
 
@@ -236,7 +236,7 @@ let theme = FullTheme::try_from_source(&MySource).unwrap();
 
 ### 搭配 ResolvedTheme
 
-`ResolvedTheme` 是 resolver 的输出，内部已实现所有 `*Source` trait：
+`ResolvedTheme` 是 resolver 的输出，内部已支持内置主题值类型：
 
 ```rust
 use spectrum_schema::ThemeSpec;
@@ -423,6 +423,9 @@ ThemeCodegen::new("src/theme.toml", "MyTheme")
 | `try_load` | `fn try_load() -> Result<Self, ThemeBuildError>` | build.rs 路径 |
 | `try_load_with_seed` | `fn try_load_with_seed(seed: Color) -> Result<Self, ThemeBuildError>` | build.rs 路径 |
 | `try_set_seed` | `fn try_set_seed(&mut self, seed: Color) -> Result<(), ThemeBuildError>` | build.rs 路径 |
+
+`try_from_source` 和 `reload` 还要求契约中的每个 token 值类型都为传入的 source 实现
+`ThemeValue<S>`。
 
 ```rust
 // ─── 手写 DSL 路径（无嵌入数据） ───
@@ -614,25 +617,13 @@ spread = "0px"
 内置类型（`Color`、`Length` 等）并非封闭的。可以添加你自己的令牌类型：
 
 ```rust
-use spectrum_theme::__private::{TokenSource, TokenValue};
+use spectrum_theme::__private::{ThemeValue, TokenSource};
 
 // ① 定义你的类型
 #[derive(Debug, Clone, Copy)]
 pub struct Padding(pub u16);
 
-// ② 声明它需要的 Source 能力
-pub trait PaddingSource: TokenSource {
-    fn padding(&self, path: &str) -> Result<Padding, Self::Error>;
-}
-
-// ③ 教系统如何从 Source 读取它
-impl<S: PaddingSource> TokenValue<S> for Padding {
-    fn read(source: &S, path: &str) -> Result<Self, S::Error> {
-        source.padding(path)
-    }
-}
-
-// ④ 在 DSL 中使用
+// ② 在 DSL 中使用
 define_theme_tokens! {
     pub struct CustomTheme {
         spacing {
@@ -641,13 +632,12 @@ define_theme_tokens! {
     }
 }
 
-// ⑤ 在你的 Source 实现上同时实现标准 trait 和自定义 trait
+// ③ 教某个 Source 如何提供它
 struct MySource;
 
 impl TokenSource for MySource { type Error = Infallible; }
-impl ColorSource for MySource { ... }
-impl PaddingSource for MySource {
-    fn padding(&self, _: &str) -> Result<Padding, Self::Error> {
+impl ThemeValue<MySource> for Padding {
+    fn read(_: &MySource, _: &str) -> Result<Self, Infallible> {
         Ok(Padding(12))
     }
 }
@@ -656,7 +646,8 @@ let theme = CustomTheme::try_from_source(&MySource).unwrap();
 assert_eq!(theme.spacing.pad.0, 12);
 ```
 
-> **模式**：每种自定义类型需要一对 trait——`XxxSource`（声明 Source 能提供该类型的值）+ `impl TokenValue<S> for Xxx`（声明该类型如何从 Source 读）。这和内置的 `ColorSource` + `impl TokenValue<S> for Color` 是相同的模式。
+> **模式**：每个值类型通过 `impl ThemeValue<MySource> for MyValue` 接入具体 source。
+> 生成代码只调用 `source.token::<MyValue>("path")`。
 
 ---
 

@@ -328,7 +328,7 @@ pub fn expand_schema(
                 source: &S,
             ) -> Result<Self, S::Error>
             where
-                #(#types: #facade::__private::TokenValue<S>,)*
+                #(#types: #facade::__private::ThemeValue<S>,)*
             {
                 Ok(Self { #(#values)* })
             }
@@ -339,7 +339,7 @@ pub fn expand_schema(
                 source: &S,
             ) -> Result<(), S::Error>
             where
-                #(#types: #facade::__private::TokenValue<S>,)*
+                #(#types: #facade::__private::ThemeValue<S>,)*
             {
                 #(#reload_assignments)*
                 Ok(())
@@ -714,7 +714,6 @@ fn expand_tokens(
     path: &mut Vec<Ident>,
     generated: &mut Vec<TokenStream2>,
 ) -> (Vec<TokenStream2>, Vec<TokenStream2>, Vec<Type>) {
-    let facade = env.facade;
     let struct_attrs = env.struct_attrs;
     let mut fields = Vec::new();
     let mut values = Vec::new();
@@ -726,7 +725,7 @@ fn expand_tokens(
                 fields.push(quote!(pub #name: #ty,));
                 types.push(ty.as_ref().clone());
                 values.push(quote!(
-                    #name: <#ty as #facade::__private::TokenValue<S>>::read(source, #token_path)?,
+                    #name: source.token::<#ty>(#token_path)?,
                 ));
             }
             Token::Group(name, tokens) => {
@@ -911,7 +910,7 @@ fn expand_token_values(
                     let paths = inherited_path_literals(bases, struct_path, name);
                     quote!(#facade::__private::read_inherited(source, [#(#paths),*])?)
                 } else {
-                    quote!(<#ty as #facade::__private::TokenValue<S>>::read(source, #path)?)
+                    quote!(source.token::<#ty>(#path)?)
                 };
                 values.push(quote!(#name: #value,));
                 types.push(ty.as_ref().clone());
@@ -959,10 +958,7 @@ fn expand_reload(
                 };
 
                 assignments.push(quote!(
-                    #self_path = <#ty as #facade::__private::TokenValue<S>>::read(
-                        source,
-                        #token_path,
-                    )?;
+                    #self_path = source.token::<#ty>(#token_path)?;
                 ));
             }
             Token::Group(name, tokens) => {
@@ -1021,7 +1017,7 @@ fn expand_component_reload(
                     let paths = inherited_path_literals(bases, struct_path, name);
                     quote!(#facade::__private::read_inherited(source, [#(#paths),*])?)
                 } else {
-                    quote!(<#ty as #facade::__private::TokenValue<S>>::read(source, #path)?)
+                    quote!(source.token::<#ty>(#path)?)
                 };
                 assignments.push(quote!(#self_path.#name = #value;));
             }

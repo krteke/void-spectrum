@@ -49,6 +49,14 @@ pub mod __private {
     pub trait TokenSource {
         type Error;
 
+        fn token<T>(&self, path: &str) -> Result<T, Self::Error>
+        where
+            T: ThemeValue<Self>,
+            Self: Sized,
+        {
+            T::read(self, path)
+        }
+
         fn is_missing(error: &Self::Error) -> bool {
             let _ = error;
             false
@@ -75,46 +83,18 @@ pub mod __private {
         })
     }
 
-    pub trait ColorSource: TokenSource {
-        fn color(&self, path: &str) -> Result<Color, Self::Error>;
-    }
-
-    pub trait LengthSource: TokenSource {
-        fn length(&self, path: &str) -> Result<Length, Self::Error>;
-    }
-
-    pub trait RadiusSource: TokenSource {
-        fn radius(&self, path: &str) -> Result<Radius, Self::Error>;
-    }
-
-    pub trait FontWeightSource: TokenSource {
-        fn font_weight(&self, path: &str) -> Result<FontWeight, Self::Error>;
-    }
-
-    pub trait FontStyleSource: TokenSource {
-        fn font_style(&self, path: &str) -> Result<FontStyle, Self::Error>;
-    }
-
-    pub trait LineHeightSource: TokenSource {
-        fn line_height(&self, path: &str) -> Result<LineHeight, Self::Error>;
-    }
-
-    pub trait ShadowSource: TokenSource {
-        fn shadow(&self, path: &str) -> Result<ShadowLayer, Self::Error>;
-    }
-
-    pub trait TokenValue<S: TokenSource>: Sized {
+    pub trait ThemeValue<S: TokenSource>: Sized {
         fn read(source: &S, path: &str) -> Result<Self, S::Error>;
     }
 
     pub fn read_inherited<T, S, const N: usize>(source: &S, paths: [&str; N]) -> Result<T, S::Error>
     where
-        T: TokenValue<S>,
+        T: ThemeValue<S>,
         S: TokenSource,
     {
         let mut missing = None;
         for path in paths {
-            match T::read(source, path) {
+            match source.token::<T>(path) {
                 Ok(value) => return Ok(value),
                 Err(error) if S::is_missing(&error) => {
                     missing.get_or_insert(error);
@@ -123,48 +103,6 @@ pub mod __private {
             }
         }
         Err(missing.expect("inherited token lookup has at least one path"))
-    }
-
-    impl<S: ColorSource> TokenValue<S> for Color {
-        fn read(source: &S, path: &str) -> Result<Self, S::Error> {
-            source.color(path)
-        }
-    }
-
-    impl<S: LengthSource> TokenValue<S> for Length {
-        fn read(source: &S, path: &str) -> Result<Self, S::Error> {
-            source.length(path)
-        }
-    }
-
-    impl<S: RadiusSource> TokenValue<S> for Radius {
-        fn read(source: &S, path: &str) -> Result<Self, S::Error> {
-            source.radius(path)
-        }
-    }
-
-    impl<S: FontWeightSource> TokenValue<S> for FontWeight {
-        fn read(source: &S, path: &str) -> Result<Self, S::Error> {
-            source.font_weight(path)
-        }
-    }
-
-    impl<S: FontStyleSource> TokenValue<S> for FontStyle {
-        fn read(source: &S, path: &str) -> Result<Self, S::Error> {
-            source.font_style(path)
-        }
-    }
-
-    impl<S: LineHeightSource> TokenValue<S> for LineHeight {
-        fn read(source: &S, path: &str) -> Result<Self, S::Error> {
-            source.line_height(path)
-        }
-    }
-
-    impl<S: ShadowSource> TokenValue<S> for ShadowLayer {
-        fn read(source: &S, path: &str) -> Result<Self, S::Error> {
-            source.shadow(path)
-        }
     }
 
     pub struct SeededTheme<'a> {
@@ -187,45 +125,45 @@ pub mod __private {
         }
     }
 
-    impl ColorSource for ResolvedTheme {
-        fn color(&self, path: &str) -> Result<Color, Self::Error> {
-            resolve_color(self, self.seed, path)
+    impl ThemeValue<ResolvedTheme> for Color {
+        fn read(source: &ResolvedTheme, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_color(source, source.seed, path)
         }
     }
 
-    impl LengthSource for ResolvedTheme {
-        fn length(&self, path: &str) -> Result<Length, Self::Error> {
-            resolve_length(self, path)
+    impl ThemeValue<ResolvedTheme> for Length {
+        fn read(source: &ResolvedTheme, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_length(source, path)
         }
     }
 
-    impl RadiusSource for ResolvedTheme {
-        fn radius(&self, path: &str) -> Result<Radius, Self::Error> {
-            resolve_radius(self, path)
+    impl ThemeValue<ResolvedTheme> for Radius {
+        fn read(source: &ResolvedTheme, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_radius(source, path)
         }
     }
 
-    impl FontWeightSource for ResolvedTheme {
-        fn font_weight(&self, path: &str) -> Result<FontWeight, Self::Error> {
-            resolve_font_weight(self, path)
+    impl ThemeValue<ResolvedTheme> for FontWeight {
+        fn read(source: &ResolvedTheme, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_font_weight(source, path)
         }
     }
 
-    impl FontStyleSource for ResolvedTheme {
-        fn font_style(&self, path: &str) -> Result<FontStyle, Self::Error> {
-            resolve_font_style(self, path)
+    impl ThemeValue<ResolvedTheme> for FontStyle {
+        fn read(source: &ResolvedTheme, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_font_style(source, path)
         }
     }
 
-    impl LineHeightSource for ResolvedTheme {
-        fn line_height(&self, path: &str) -> Result<LineHeight, Self::Error> {
-            resolve_line_height(self, path)
+    impl ThemeValue<ResolvedTheme> for LineHeight {
+        fn read(source: &ResolvedTheme, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_line_height(source, path)
         }
     }
 
-    impl ShadowSource for ResolvedTheme {
-        fn shadow(&self, path: &str) -> Result<ShadowLayer, Self::Error> {
-            resolve_shadow(self, path)
+    impl ThemeValue<ResolvedTheme> for ShadowLayer {
+        fn read(source: &ResolvedTheme, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_shadow(source, path)
         }
     }
 
@@ -237,45 +175,45 @@ pub mod __private {
         }
     }
 
-    impl ColorSource for SeededTheme<'_> {
-        fn color(&self, path: &str) -> Result<Color, Self::Error> {
-            resolve_color(self.theme, Some(self.seed), path)
+    impl ThemeValue<SeededTheme<'_>> for Color {
+        fn read(source: &SeededTheme<'_>, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_color(source.theme, Some(source.seed), path)
         }
     }
 
-    impl LengthSource for SeededTheme<'_> {
-        fn length(&self, path: &str) -> Result<Length, Self::Error> {
-            resolve_length(self.theme, path)
+    impl ThemeValue<SeededTheme<'_>> for Length {
+        fn read(source: &SeededTheme<'_>, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_length(source.theme, path)
         }
     }
 
-    impl RadiusSource for SeededTheme<'_> {
-        fn radius(&self, path: &str) -> Result<Radius, Self::Error> {
-            resolve_radius(self.theme, path)
+    impl ThemeValue<SeededTheme<'_>> for Radius {
+        fn read(source: &SeededTheme<'_>, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_radius(source.theme, path)
         }
     }
 
-    impl FontWeightSource for SeededTheme<'_> {
-        fn font_weight(&self, path: &str) -> Result<FontWeight, Self::Error> {
-            resolve_font_weight(self.theme, path)
+    impl ThemeValue<SeededTheme<'_>> for FontWeight {
+        fn read(source: &SeededTheme<'_>, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_font_weight(source.theme, path)
         }
     }
 
-    impl FontStyleSource for SeededTheme<'_> {
-        fn font_style(&self, path: &str) -> Result<FontStyle, Self::Error> {
-            resolve_font_style(self.theme, path)
+    impl ThemeValue<SeededTheme<'_>> for FontStyle {
+        fn read(source: &SeededTheme<'_>, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_font_style(source.theme, path)
         }
     }
 
-    impl LineHeightSource for SeededTheme<'_> {
-        fn line_height(&self, path: &str) -> Result<LineHeight, Self::Error> {
-            resolve_line_height(self.theme, path)
+    impl ThemeValue<SeededTheme<'_>> for LineHeight {
+        fn read(source: &SeededTheme<'_>, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_line_height(source.theme, path)
         }
     }
 
-    impl ShadowSource for SeededTheme<'_> {
-        fn shadow(&self, path: &str) -> Result<ShadowLayer, Self::Error> {
-            resolve_shadow(self.theme, path)
+    impl ThemeValue<SeededTheme<'_>> for ShadowLayer {
+        fn read(source: &SeededTheme<'_>, path: &str) -> Result<Self, ThemeBuildError> {
+            resolve_shadow(source.theme, path)
         }
     }
 

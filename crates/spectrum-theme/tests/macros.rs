@@ -9,10 +9,7 @@ use spectrum_resolver::resolve_theme;
 #[cfg(feature = "seed")]
 use spectrum_schema::ThemeSpec;
 use spectrum_theme::{
-    __private::{
-        ColorSource, FontStyleSource, FontWeightSource, LengthSource, LineHeightSource,
-        RadiusSource, ShadowSource, TokenSource,
-    },
+    __private::{ThemeValue, TokenSource},
     Color, FontStyle, FontWeight, Length, LengthUnit, LineHeight, Radius, ShadowLayer,
     ThemeBuildError, define_theme_tokens,
 };
@@ -141,44 +138,44 @@ impl TokenSource for StaticSource {
     type Error = Infallible;
 }
 
-impl ColorSource for StaticSource {
-    fn color(&self, _: &str) -> Result<Color, Self::Error> {
+impl ThemeValue<StaticSource> for Color {
+    fn read(_: &StaticSource, _: &str) -> Result<Self, Infallible> {
         Ok(Color::new(1, 2, 3))
     }
 }
 
-impl LengthSource for StaticSource {
-    fn length(&self, _: &str) -> Result<Length, Self::Error> {
+impl ThemeValue<StaticSource> for Length {
+    fn read(_: &StaticSource, _: &str) -> Result<Self, Infallible> {
         Ok(Length::new(9.0, LengthUnit::Px).expect("finite"))
     }
 }
 
-impl RadiusSource for StaticSource {
-    fn radius(&self, _: &str) -> Result<Radius, Self::Error> {
+impl ThemeValue<StaticSource> for Radius {
+    fn read(_: &StaticSource, _: &str) -> Result<Self, Infallible> {
         Ok("7px".parse().expect("radius"))
     }
 }
 
-impl FontWeightSource for StaticSource {
-    fn font_weight(&self, _: &str) -> Result<FontWeight, Self::Error> {
+impl ThemeValue<StaticSource> for FontWeight {
+    fn read(_: &StaticSource, _: &str) -> Result<Self, Infallible> {
         Ok(FontWeight::new(700).expect("weight"))
     }
 }
 
-impl FontStyleSource for StaticSource {
-    fn font_style(&self, _: &str) -> Result<FontStyle, Self::Error> {
+impl ThemeValue<StaticSource> for FontStyle {
+    fn read(_: &StaticSource, _: &str) -> Result<Self, Infallible> {
         Ok(FontStyle::Oblique)
     }
 }
 
-impl LineHeightSource for StaticSource {
-    fn line_height(&self, _: &str) -> Result<LineHeight, Self::Error> {
+impl ThemeValue<StaticSource> for LineHeight {
+    fn read(_: &StaticSource, _: &str) -> Result<Self, Infallible> {
         Ok("1.25".parse().expect("line height"))
     }
 }
 
-impl ShadowSource for StaticSource {
-    fn shadow(&self, _: &str) -> Result<ShadowLayer, Self::Error> {
+impl ThemeValue<StaticSource> for ShadowLayer {
+    fn read(_: &StaticSource, _: &str) -> Result<Self, Infallible> {
         let px = |value| Length::new(value, LengthUnit::Px).expect("finite");
         Ok(
             ShadowLayer::new(Color::new(0, 0, 0), px(0.0), px(2.0), px(6.0), px(0.0))
@@ -193,8 +190,8 @@ impl TokenSource for LengthOnlySource {
     type Error = Infallible;
 }
 
-impl LengthSource for LengthOnlySource {
-    fn length(&self, _: &str) -> Result<Length, Self::Error> {
+impl ThemeValue<LengthOnlySource> for Length {
+    fn read(_: &LengthOnlySource, _: &str) -> Result<Self, Infallible> {
         Ok(Length::new(12.0, LengthUnit::Px).expect("finite"))
     }
 }
@@ -205,8 +202,8 @@ impl TokenSource for RadiusOnlySource {
     type Error = Infallible;
 }
 
-impl RadiusSource for RadiusOnlySource {
-    fn radius(&self, _: &str) -> Result<Radius, Self::Error> {
+impl ThemeValue<RadiusOnlySource> for Radius {
+    fn read(_: &RadiusOnlySource, _: &str) -> Result<Self, Infallible> {
         Ok("10px".parse().expect("radius"))
     }
 }
@@ -217,8 +214,8 @@ impl TokenSource for FontWeightOnlySource {
     type Error = Infallible;
 }
 
-impl FontWeightSource for FontWeightOnlySource {
-    fn font_weight(&self, _: &str) -> Result<FontWeight, Self::Error> {
+impl ThemeValue<FontWeightOnlySource> for FontWeight {
+    fn read(_: &FontWeightOnlySource, _: &str) -> Result<Self, Infallible> {
         Ok(FontWeight::new(500).expect("weight"))
     }
 }
@@ -229,8 +226,8 @@ impl TokenSource for FontStyleOnlySource {
     type Error = Infallible;
 }
 
-impl FontStyleSource for FontStyleOnlySource {
-    fn font_style(&self, _: &str) -> Result<FontStyle, Self::Error> {
+impl ThemeValue<FontStyleOnlySource> for FontStyle {
+    fn read(_: &FontStyleOnlySource, _: &str) -> Result<Self, Infallible> {
         Ok(FontStyle::Italic)
     }
 }
@@ -241,8 +238,8 @@ impl TokenSource for LineHeightOnlySource {
     type Error = Infallible;
 }
 
-impl LineHeightSource for LineHeightOnlySource {
-    fn line_height(&self, _: &str) -> Result<LineHeight, Self::Error> {
+impl ThemeValue<LineHeightOnlySource> for LineHeight {
+    fn read(_: &LineHeightOnlySource, _: &str) -> Result<Self, Infallible> {
         Ok("24px".parse().expect("line height"))
     }
 }
