@@ -204,7 +204,52 @@ fn parse_states(input: ParseStream<'_>) -> SynResult<Vec<StateVariant>> {
         states.push(StateVariant { name, extends });
         let _ = input.parse::<syn::Token![,]>();
     }
+    validate_states(&states)?;
     Ok(states)
+}
+
+fn validate_states(states: &[StateVariant]) -> SynResult<()> {
+    let mut declared = BTreeSet::new();
+    for state in states {
+        if !declared.insert(state.name.to_string()) {
+            return Err(syn::Error::new(
+                state.name.span(),
+                format!("duplicate state `{}` in state set", state.name),
+            ));
+        }
+    }
+    for state in states {
+        if let Some(parent) = &state.extends
+            && !declared.contains(&parent.to_string())
+        {
+            return Err(syn::Error::new(
+                parent.span(),
+                format!("unknown parent state `{parent}`"),
+            ));
+        }
+    }
+    for state in states {
+        validate_state_chain(states, state)?;
+    }
+    Ok(())
+}
+
+fn validate_state_chain(states: &[StateVariant], state: &StateVariant) -> SynResult<()> {
+    let mut seen = BTreeSet::new();
+    let mut current = Some(state.name.clone());
+    while let Some(name) = current {
+        if !seen.insert(name.to_string()) {
+            return Err(syn::Error::new(
+                name.span(),
+                format!("state inheritance cycle involving `{name}`"),
+            ));
+        }
+        current = states
+            .iter()
+            .find(|candidate| candidate.name == name)
+            .and_then(|candidate| candidate.extends.clone());
+    }
+    Ok(())
 }
 
 /// Expands a parsed schema into Rust tokens.
@@ -215,6 +260,9 @@ pub fn expand_schema(
     facade: &TokenStream2,
 ) -> TokenStream2 {
     let ThemeSchema(attrs, visibility, name, tokens) = schema;
+    if let Err(error) = validate_schema(&tokens) {
+        return error.to_compile_error();
+    }
     let components = collect_components(&tokens);
     let mut generated = Vec::new();
     let env = ExpandEnv {
@@ -301,14 +349,66 @@ pub fn expand_schema(
     }
 }
 
+fn validate_schema(tokens: &[Token]) -> SynResult<()> {
+    let mut components = BTreeSet::new();
+    collect_component_names(tokens, &mut components)?;
+    validate_state_components(tokens, &components)
+}
+
+fn collect_component_names(tokens: &[Token], components: &mut BTreeSet<String>) -> SynResult<()> {
+    for token in tokens {
+        match token {
+            Token::Component(name, children) => {
+                if !components.insert(name.to_string()) {
+                    return Err(syn::Error::new(
+                        name.span(),
+                        format!("duplicate component `{name}`"),
+                    ));
+                }
+                collect_component_names(children, components)?;
+            }
+            Token::Group(_, children) => collect_component_names(children, components)?,
+            Token::Value(_, _) | Token::States(_) => {}
+        }
+    }
+    Ok(())
+}
+
+fn validate_state_components(tokens: &[Token], components: &BTreeSet<String>) -> SynResult<()> {
+    for token in tokens {
+        match token {
+            Token::States(states) if !components.contains(&states.component.to_string()) => {
+                return Err(syn::Error::new(
+                    states.component.span(),
+                    format!("unknown state component `{}`", states.component),
+                ));
+            }
+            Token::Group(_, children) | Token::Component(_, children) => {
+                validate_state_components(children, components)?;
+            }
+            Token::Value(_, _) | Token::States(_) => {}
+        }
+    }
+    Ok(())
+}
+
 fn collect_components(tokens: &[Token]) -> BTreeMap<String, Vec<Token>> {
-    tokens
-        .iter()
-        .filter_map(|token| match token {
-            Token::Component(name, children) => Some((name.to_string(), children.clone())),
-            _ => None,
-        })
-        .collect()
+    let mut components = BTreeMap::new();
+    collect_components_into(tokens, &mut components);
+    components
+}
+
+fn collect_components_into(tokens: &[Token], components: &mut BTreeMap<String, Vec<Token>>) {
+    for token in tokens {
+        match token {
+            Token::Component(name, children) => {
+                components.insert(name.to_string(), children.clone());
+                collect_components_into(children, components);
+            }
+            Token::Group(_, children) => collect_components_into(children, components),
+            Token::Value(_, _) | Token::States(_) => {}
+        }
+    }
 }
 
 fn resolve_theme_file(path: &Path) -> Result<ResolvedTheme, CodegenError> {

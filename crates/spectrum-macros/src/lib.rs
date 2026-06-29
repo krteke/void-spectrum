@@ -81,7 +81,9 @@ use syn::{Ident, parse_macro_input};
 ///
 /// This generates `ButtonTokens`, `MyThemeButtonStates`, and
 /// `MyThemeButtonState`. The state container exposes `get(state)`, and the
-/// state enum exposes `parent()` for declared `extends` relationships.
+/// state enum exposes `parent()` for declared `extends` relationships. Parent
+/// states must be declared in the same state set; duplicate states and
+/// inheritance cycles are rejected while parsing the contract.
 ///
 /// # Constructing from a token source
 ///

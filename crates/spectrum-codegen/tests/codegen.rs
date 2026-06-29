@@ -18,6 +18,13 @@ fn facade() -> TokenStream {
     syn::parse_str("::spectrum_theme").expect("valid facade path")
 }
 
+fn parse_schema_error(input: TokenStream) -> String {
+    match syn::parse2::<ThemeSchema>(input) {
+        Ok(_) => panic!("schema unexpectedly parsed"),
+        Err(error) => error.to_string(),
+    }
+}
+
 #[test]
 fn generates_typed_contract_from_theme_file() {
     let code = ThemeCodegen::new(fixture("data/theme.toml"), "FileTheme")
@@ -138,4 +145,72 @@ fn expand_schema_without_attributes_produces_no_user_derives() {
 
     // No user derive should appear anywhere (only internal allow/doc attributes).
     assert!(!code.contains("#[derive("));
+}
+
+#[test]
+fn rejects_unknown_state_parent() {
+    let error = parse_schema_error(quote::quote!(
+        pub struct TestTheme {
+            component ButtonTokens {
+                fg: spectrum_theme::Color,
+            }
+            states button: ButtonTokens {
+                normal,
+                hover extends missing,
+            }
+        }
+    ));
+
+    assert!(error.contains("unknown parent state `missing`"));
+}
+
+#[test]
+fn rejects_state_inheritance_cycles() {
+    let error = parse_schema_error(quote::quote!(
+        pub struct TestTheme {
+            component ButtonTokens {
+                fg: spectrum_theme::Color,
+            }
+            states button: ButtonTokens {
+                normal extends hover,
+                hover extends normal,
+            }
+        }
+    ));
+
+    assert!(error.contains("state inheritance cycle"));
+}
+
+#[test]
+fn rejects_duplicate_state_names() {
+    let error = parse_schema_error(quote::quote!(
+        pub struct TestTheme {
+            component ButtonTokens {
+                fg: spectrum_theme::Color,
+            }
+            states button: ButtonTokens {
+                normal,
+                normal,
+            }
+        }
+    ));
+
+    assert!(error.contains("duplicate state `normal`"));
+}
+
+#[test]
+fn expand_schema_reports_unknown_state_components() {
+    let schema: ThemeSchema = syn::parse2(quote::quote!(
+        pub struct TestTheme {
+            states button: ButtonTokens {
+                normal,
+            }
+        }
+    ))
+    .expect("schema parses");
+
+    let code = expand_schema(schema, None, &facade()).to_string();
+
+    assert!(code.contains("compile_error"));
+    assert!(code.contains("unknown state component `ButtonTokens`"));
 }

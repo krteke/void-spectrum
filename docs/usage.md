@@ -183,7 +183,9 @@ button.focus.fg
 `extends` records the state relationship for UI code and controls source lookup
 fallback. If a token is missing from `press_down`, the generated reader tries
 `hover`, then `normal`. Non-missing source errors are returned immediately and
-do not fall back.
+do not fall back. The parent state must be declared in the same state set;
+duplicate state names and inheritance cycles are rejected by the contract
+parser.
 
 ### Building an Instance at Runtime
 
