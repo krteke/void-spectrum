@@ -1,0 +1,11 @@
+seed = "#6750a4"
+
+[meta]
+mode = "light"
+
+[button.normal]
+fg = "{material.primary}"
+gap = "4px"
+
+[button.hover]
+fg = "#040506"

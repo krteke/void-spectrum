@@ -40,6 +40,24 @@ fn generates_typed_contract_from_theme_file() {
 }
 
 #[test]
+fn generates_typed_contract_from_external_contract_and_values() {
+    let code = ThemeCodegen::from_contract(
+        fixture("data/contract.tokens"),
+        fixture("data/contract-values.toml"),
+    )
+    .emit_rerun_if_changed(false)
+    .generate_string()
+    .expect("generated code");
+
+    assert!(code.contains("pub struct ContractFileTheme"));
+    assert!(code.contains("pub struct FileButtonTokens"));
+    assert!(code.contains("ContractFileThemeButtonStates"));
+    assert!(code.contains("TomlThemeSource"));
+    assert!(code.contains("try_load"));
+    assert!(!code.contains("try_load_with_seed"));
+}
+
+#[test]
 fn writes_generated_contract_to_requested_path() {
     let dir = std::env::temp_dir().join(format!("spectrum-codegen-test-{}", std::process::id()));
     fs::create_dir_all(&dir).expect("temp dir");
@@ -56,6 +74,19 @@ fn writes_generated_contract_to_requested_path() {
             .expect("generated source")
             .contains("FileTheme")
     );
+}
+
+#[test]
+fn rejects_invalid_external_contracts() {
+    let error = ThemeCodegen::from_contract(
+        fixture("ui/invalid_contract.tokens"),
+        fixture("data/contract-values.toml"),
+    )
+    .emit_rerun_if_changed(false)
+    .generate_string()
+    .expect_err("invalid contract");
+
+    assert!(matches!(error, CodegenError::InvalidContract(_)));
 }
 
 #[test]

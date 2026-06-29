@@ -23,7 +23,8 @@ pub use error::CodegenError;
 #[derive(Debug, Clone)]
 pub struct ThemeCodegen {
     source_path: PathBuf,
-    struct_name: String,
+    contract_path: Option<PathBuf>,
+    struct_name: Option<String>,
     visibility: String,
     output_file: String,
     facade_path: String,
@@ -35,7 +36,24 @@ impl ThemeCodegen {
     pub fn new(source_path: impl Into<PathBuf>, struct_name: impl Into<String>) -> Self {
         Self {
             source_path: source_path.into(),
-            struct_name: struct_name.into(),
+            contract_path: None,
+            struct_name: Some(struct_name.into()),
+            visibility: "pub".to_owned(),
+            output_file: "theme_tokens.rs".to_owned(),
+            facade_path: "::spectrum_theme".to_owned(),
+            emit_rerun_if_changed: true,
+        }
+    }
+
+    /// Creates a generator from an external contract and a contract-aware TOML values file.
+    pub fn from_contract(
+        contract_path: impl Into<PathBuf>,
+        values_path: impl Into<PathBuf>,
+    ) -> Self {
+        Self {
+            source_path: values_path.into(),
+            contract_path: Some(contract_path.into()),
+            struct_name: None,
             visibility: "pub".to_owned(),
             output_file: "theme_tokens.rs".to_owned(),
             facade_path: "::spectrum_theme".to_owned(),
@@ -87,22 +105,58 @@ impl ThemeCodegen {
         })?;
         if self.emit_rerun_if_changed {
             println!("cargo:rerun-if-changed={}", self.source_path.display());
+            if let Some(contract_path) = &self.contract_path {
+                println!("cargo:rerun-if-changed={}", contract_path.display());
+            }
         }
         Ok(output_path.to_owned())
     }
 
     /// Generates Rust source code as a string.
     pub fn generate_string(&self) -> Result<String, CodegenError> {
-        let visibility: Visibility =
-            syn::parse_str(&self.visibility).map_err(CodegenError::InvalidContract)?;
-        let name =
-            syn::parse_str::<Ident>(&self.struct_name).map_err(CodegenError::InvalidContract)?;
         let facade = syn::parse_str::<TokenStream2>(&self.facade_path)
             .map_err(CodegenError::InvalidContract)?;
+        if let Some(contract_path) = &self.contract_path {
+            return self.generate_contract_string(contract_path, &facade);
+        }
+        let visibility: Visibility =
+            syn::parse_str(&self.visibility).map_err(CodegenError::InvalidContract)?;
+        let name = syn::parse_str::<Ident>(
+            self.struct_name
+                .as_deref()
+                .expect("legacy theme generator has a struct name"),
+        )
+        .map_err(CodegenError::InvalidContract)?;
         let resolved = resolve_theme_file(&self.source_path)?;
         let tokens = tokens_from_theme(&resolved, Span::call_site(), &facade)?;
         let schema = ThemeSchema(Vec::new(), visibility, name, tokens);
         Ok(expand_schema(schema, Some(resolved), &facade).to_string())
+    }
+
+    fn generate_contract_string(
+        &self,
+        contract_path: &Path,
+        facade: &TokenStream2,
+    ) -> Result<String, CodegenError> {
+        let contract =
+            fs::read_to_string(contract_path).map_err(|source| CodegenError::ReadSource {
+                path: contract_path.to_owned(),
+                source,
+            })?;
+        let schema: ThemeSchema =
+            syn::parse_str(&contract).map_err(CodegenError::InvalidContract)?;
+        let values =
+            fs::read_to_string(&self.source_path).map_err(|source| CodegenError::ReadSource {
+                path: self.source_path.clone(),
+                source,
+            })?;
+        values
+            .parse::<toml::Table>()
+            .map_err(|source| CodegenError::ParseToml {
+                path: self.source_path.clone(),
+                source,
+            })?;
+        Ok(expand_schema_inner(schema, Some(EmbeddedSource::Toml(values)), facade).to_string())
     }
 }
 
@@ -128,6 +182,11 @@ struct StateSet {
 struct StateVariant {
     name: Ident,
     extends: Option<Ident>,
+}
+
+enum EmbeddedSource {
+    Resolved(Box<ResolvedTheme>),
+    Toml(String),
 }
 
 mod keyword {
@@ -259,6 +318,18 @@ pub fn expand_schema(
     embedded: Option<ResolvedTheme>,
     facade: &TokenStream2,
 ) -> TokenStream2 {
+    expand_schema_inner(
+        schema,
+        embedded.map(|theme| EmbeddedSource::Resolved(Box::new(theme))),
+        facade,
+    )
+}
+
+fn expand_schema_inner(
+    schema: ThemeSchema,
+    embedded: Option<EmbeddedSource>,
+    facade: &TokenStream2,
+) -> TokenStream2 {
     let ThemeSchema(attrs, visibility, name, tokens) = schema;
     if let Err(error) = validate_schema(&tokens) {
         return error.to_compile_error();
@@ -279,41 +350,7 @@ pub fn expand_schema(
         &mut generated,
     );
     let reload_assignments = expand_reload(&tokens, &components, &mut Vec::new(), facade);
-    let loader = embedded.map(|theme| {
-        let seed_update = seed_update_expr(&theme, facade);
-        let theme = resolved_theme_expr(&theme, facade);
-        quote! {
-            impl #name {
-                fn __embedded_theme() -> &'static #facade::__private::ResolvedTheme {
-                    static THEME: ::std::sync::OnceLock<#facade::__private::ResolvedTheme> =
-                        ::std::sync::OnceLock::new();
-                    THEME.get_or_init(|| #theme)
-                }
-
-                #[allow(missing_docs)]
-                #visibility fn try_load() -> Result<Self, #facade::ThemeBuildError> {
-                    Self::try_from_source(Self::__embedded_theme())
-                }
-
-                #[allow(missing_docs)]
-                #visibility fn try_load_with_seed(
-                    seed: #facade::Color,
-                ) -> Result<Self, #facade::ThemeBuildError> {
-                    let source =
-                        #facade::__private::SeededTheme::new(Self::__embedded_theme(), seed);
-                    Self::try_from_source(&source)
-                }
-
-                #[allow(missing_docs)]
-                #visibility fn try_set_seed(
-                    &mut self,
-                    seed: #facade::Color,
-                ) -> Result<(), #facade::ThemeBuildError> {
-                    #seed_update
-                }
-            }
-        }
-    });
+    let loader = embedded.map(|source| embedded_loader(&name, &visibility, source, facade));
 
     quote! {
         #(#generated)*
@@ -346,6 +383,71 @@ pub fn expand_schema(
             }
         }
         #loader
+    }
+}
+
+fn embedded_loader(
+    name: &Ident,
+    visibility: &Visibility,
+    source: EmbeddedSource,
+    facade: &TokenStream2,
+) -> TokenStream2 {
+    match source {
+        EmbeddedSource::Resolved(theme) => {
+            let seed_update = seed_update_expr(&theme, facade);
+            let theme = resolved_theme_expr(&theme, facade);
+            quote! {
+                impl #name {
+                    fn __embedded_theme() -> &'static #facade::__private::ResolvedTheme {
+                        static THEME: ::std::sync::OnceLock<#facade::__private::ResolvedTheme> =
+                            ::std::sync::OnceLock::new();
+                        THEME.get_or_init(|| #theme)
+                    }
+
+                    #[allow(missing_docs)]
+                    #visibility fn try_load() -> Result<Self, #facade::ThemeBuildError> {
+                        Self::try_from_source(Self::__embedded_theme())
+                    }
+
+                    #[allow(missing_docs)]
+                    #visibility fn try_load_with_seed(
+                        seed: #facade::Color,
+                    ) -> Result<Self, #facade::ThemeBuildError> {
+                        let source =
+                            #facade::__private::SeededTheme::new(Self::__embedded_theme(), seed);
+                        Self::try_from_source(&source)
+                    }
+
+                    #[allow(missing_docs)]
+                    #visibility fn try_set_seed(
+                        &mut self,
+                        seed: #facade::Color,
+                    ) -> Result<(), #facade::ThemeBuildError> {
+                        #seed_update
+                    }
+                }
+            }
+        }
+        EmbeddedSource::Toml(source) => {
+            let source = LitStr::new(&source, Span::call_site());
+            quote! {
+                impl #name {
+                    fn __embedded_source() -> &'static #facade::config::TomlThemeSource {
+                        static SOURCE: ::std::sync::OnceLock<#facade::config::TomlThemeSource> =
+                            ::std::sync::OnceLock::new();
+                        SOURCE.get_or_init(|| {
+                            #facade::config::TomlThemeSource::parse(#source)
+                                .expect("embedded TOML theme source was validated at compile time")
+                        })
+                    }
+
+                    #[allow(missing_docs)]
+                    #visibility fn try_load() -> Result<Self, #facade::ThemeBuildError> {
+                        Self::try_from_source(Self::__embedded_source())
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -870,6 +972,7 @@ fn expand_states(
 
             impl #state_enum_name {
                 #[allow(missing_docs)]
+                #[must_use]
                 #visibility const fn parent(self) -> Option<Self> {
                     match self {
                         #(#state_parents)*
@@ -879,6 +982,7 @@ fn expand_states(
 
             impl #state_set_name {
                 #[allow(missing_docs)]
+                #[must_use]
                 #visibility const fn get(&self, state: #state_enum_name) -> &#component {
                     match state {
                         #(#state_get)*

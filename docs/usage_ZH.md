@@ -34,12 +34,12 @@ define_theme_tokens! {
 
 | | `define_theme_tokens!` | `build.rs` + `ThemeCodegen` |
 |---|---|---|
-| 令牌结构来源 | 手写 DSL | TOML 文件自动推导 |
+| 令牌结构来源 | 手写 DSL | 外部 contract DSL，或 legacy TOML 自动推导 |
 | 主题数据 | 运行时提供 | 编译期嵌入二进制 |
-| 是否需外部文件 | 否 | 需 TOML 文件 |
+| 是否需外部文件 | 否 | 需 contract + TOML，或 legacy TOML |
 | IDE 补全 | ✅ 宏展开可见 | ✅ `include!` 真实文件 |
 | Material 颜色 | ✅ 手动指定 seed | ✅ TOML 中声明 |
-| `try_load` / `try_set_seed` | ❌ | ✅ |
+| `try_load` / `try_set_seed` | ❌ | 始终有 `try_load`；seed setter 仅 legacy embedded theme 有 |
 
 ---
 
@@ -308,7 +308,72 @@ theme.reload(&resolved_b).unwrap();
 
 ---
 
-## 路径二：Legacy TOML 文件 + build.rs
+## 路径二：外部 Contract + TOML + build.rs
+
+当你既想使用和 `define_theme_tokens!` 相同的契约语法，又希望生成出来的 Rust 文件能被
+rust-analyzer 完整索引时，使用这条路径。
+
+### 第一步：创建 `theme.tokens`
+
+```rust
+pub struct AppTheme {
+    component ButtonTokens {
+        fg: spectrum_theme::Color,
+        bg: spectrum_theme::Color,
+        radius: spectrum_theme::Radius,
+    }
+
+    states button: ButtonTokens {
+        normal,
+        hover extends normal,
+        press_down extends hover,
+    }
+}
+```
+
+### 第二步：创建 `theme.toml`
+
+```toml
+seed = "#6750a4"
+
+[meta]
+mode = "light"
+
+[button.normal]
+fg = "{material.primary}"
+bg = "{material.surface}"
+radius = "8px"
+
+[button.hover]
+bg = "{material.primary_container}"
+```
+
+### 第三步：创建 `build.rs`
+
+```rust
+use spectrum_codegen::ThemeCodegen;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ThemeCodegen::from_contract("theme.tokens", "theme.toml").generate()?;
+    Ok(())
+}
+```
+
+### 第四步：在源码中引入
+
+```rust
+include!(concat!(env!("OUT_DIR"), "/theme_tokens.rs"));
+
+fn main() {
+    let theme = AppTheme::try_load().unwrap();
+    let hover = theme.button.hover;
+}
+```
+
+`from_contract` 会在构建期校验外部契约和 TOML 语法。生成的 `try_load` 使用
+`TomlThemeSource`，因此消费 crate 需要启用 `spectrum-theme` 的 `toml` feature。
+
+## Legacy 路径：从扁平 TOML 推导类型契约
 
 ### 第一步：创建 `theme.toml`
 
@@ -449,6 +514,11 @@ let theme = match user_preference {
 ### ThemeCodegen 完整配置
 
 ```rust
+ThemeCodegen::from_contract("src/theme.tokens", "src/theme.toml")
+    .output_file("theme_tokens.rs")
+    .facade_path("::spectrum_theme")
+    .generate()?;
+
 ThemeCodegen::new("src/theme.toml", "MyTheme")
     .visibility("pub(crate)")          // 默认 "pub"
     .output_file("my_theme_tokens.rs") // 默认 "theme_tokens.rs"
@@ -467,8 +537,8 @@ ThemeCodegen::new("src/theme.toml", "MyTheme")
 | `try_from_source` | `fn try_from_source<S: TokenSource>(source: &S) -> Result<Self, S::Error>` | 始终 |
 | `reload` | `fn reload<S: TokenSource>(&mut self, source: &S) -> Result<(), S::Error>` | 始终 |
 | `try_load` | `fn try_load() -> Result<Self, ThemeBuildError>` | build.rs 路径 |
-| `try_load_with_seed` | `fn try_load_with_seed(seed: Color) -> Result<Self, ThemeBuildError>` | build.rs 路径 |
-| `try_set_seed` | `fn try_set_seed(&mut self, seed: Color) -> Result<(), ThemeBuildError>` | build.rs 路径 |
+| `try_load_with_seed` | `fn try_load_with_seed(seed: Color) -> Result<Self, ThemeBuildError>` | legacy build.rs 路径 |
+| `try_set_seed` | `fn try_set_seed(&mut self, seed: Color) -> Result<(), ThemeBuildError>` | legacy build.rs 路径 |
 
 `try_from_source` 和 `reload` 还要求契约中的每个 token 值类型都为传入的 source 实现
 `ThemeValue<S>`。

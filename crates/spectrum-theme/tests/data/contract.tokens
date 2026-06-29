@@ -1,0 +1,13 @@
+#[derive(Debug, Clone, PartialEq)]
+pub struct ContractFileTheme {
+    component FileButtonTokens {
+        fg: spectrum_theme::Color,
+        gap: spectrum_theme::Length,
+    }
+
+    states button: FileButtonTokens {
+        normal,
+        hover extends normal,
+        press_down extends hover,
+    }
+}

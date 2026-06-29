@@ -16,6 +16,7 @@ use spectrum_theme::{
     ThemeBuildError, define_theme_tokens,
 };
 
+#[cfg(feature = "toml")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Delay(u16);
 
@@ -55,6 +56,7 @@ define_theme_tokens! {
     }
 }
 
+#[cfg(feature = "toml")]
 define_theme_tokens! {
     struct CustomConfigTheme {
         motion {
@@ -144,6 +146,8 @@ define_theme_tokens! {
 }
 
 include!(concat!(env!("OUT_DIR"), "/theme_tokens.rs"));
+#[cfg(feature = "toml")]
+include!(concat!(env!("OUT_DIR"), "/contract_theme_tokens.rs"));
 
 struct StaticSource;
 
@@ -409,6 +413,18 @@ fn file_contract_loads_embedded_values_and_supports_seed_override() {
     assert_eq!(red.editor.font_style, FontStyle::Italic);
     assert_eq!(blue.line_height.body.to_string(), "1.5");
     assert_eq!(red.editor.line_height.to_string(), "20px");
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn external_contract_file_loads_contract_aware_values() {
+    let theme = ContractFileTheme::try_load().expect("contract theme");
+
+    assert_eq!(theme.button.normal.fg, Color::new(103, 80, 164));
+    assert_eq!(theme.button.hover.fg, Color::new(4, 5, 6));
+    assert_eq!(theme.button.hover.gap.to_string(), "4px");
+    assert_eq!(theme.button.press_down.fg, Color::new(4, 5, 6));
+    assert_eq!(theme.button.press_down.gap.to_string(), "4px");
 }
 
 #[cfg(feature = "seed")]

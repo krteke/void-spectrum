@@ -34,12 +34,12 @@ define_theme_tokens! {
 
 | | `define_theme_tokens!` | `build.rs` + `ThemeCodegen` |
 |---|---|---|
-| Token structure source | Hand-written DSL | Auto-derived from TOML |
+| Token structure source | Hand-written DSL | External contract DSL, or legacy TOML inference |
 | Theme data | Provided at runtime | Embedded at compile time |
-| Requires external file | No | Yes (TOML) |
+| Requires external file | No | Yes (contract + TOML, or legacy TOML) |
 | IDE completion | ✅ via macro expansion | ✅ via `include!` of real file |
 | Material colors | ✅ with manual seed | ✅ declared in TOML |
-| `try_load` / `try_set_seed` | ❌ | ✅ |
+| `try_load` / `try_set_seed` | ❌ | `try_load` always; seed setters on legacy embedded themes |
 
 ---
 
@@ -316,7 +316,73 @@ theme.reload(&resolved_b).unwrap();
 
 ---
 
-## Path 2: Legacy TOML + build.rs
+## Path 2: External Contract + TOML + build.rs
+
+Use this path when you want rust-analyzer-visible generated Rust code while
+keeping the same contract grammar as `define_theme_tokens!`.
+
+### Step 1: Create `theme.tokens`
+
+```rust
+pub struct AppTheme {
+    component ButtonTokens {
+        fg: spectrum_theme::Color,
+        bg: spectrum_theme::Color,
+        radius: spectrum_theme::Radius,
+    }
+
+    states button: ButtonTokens {
+        normal,
+        hover extends normal,
+        press_down extends hover,
+    }
+}
+```
+
+### Step 2: Create `theme.toml`
+
+```toml
+seed = "#6750a4"
+
+[meta]
+mode = "light"
+
+[button.normal]
+fg = "{material.primary}"
+bg = "{material.surface}"
+radius = "8px"
+
+[button.hover]
+bg = "{material.primary_container}"
+```
+
+### Step 3: Create `build.rs`
+
+```rust
+use spectrum_codegen::ThemeCodegen;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ThemeCodegen::from_contract("theme.tokens", "theme.toml").generate()?;
+    Ok(())
+}
+```
+
+### Step 4: Include in Source
+
+```rust
+include!(concat!(env!("OUT_DIR"), "/theme_tokens.rs"));
+
+fn main() {
+    let theme = AppTheme::try_load().unwrap();
+    let hover = theme.button.hover;
+}
+```
+
+`from_contract` validates the external contract and the TOML syntax at build
+time. The generated `try_load` uses `TomlThemeSource`, so the consuming crate
+must enable `spectrum-theme`'s `toml` feature.
+
+## Legacy Path: Typed Contract from Flat TOML
 
 ### Step 1: Create `theme.toml`
 
@@ -457,6 +523,11 @@ let theme = match user_preference {
 ### Full ThemeCodegen Configuration
 
 ```rust
+ThemeCodegen::from_contract("src/theme.tokens", "src/theme.toml")
+    .output_file("theme_tokens.rs")
+    .facade_path("::spectrum_theme")
+    .generate()?;
+
 ThemeCodegen::new("src/theme.toml", "MyTheme")
     .visibility("pub(crate)")          // default "pub"
     .output_file("my_theme_tokens.rs") // default "theme_tokens.rs"
@@ -475,8 +546,8 @@ Every generated struct has these methods:
 | `try_from_source` | `fn try_from_source<S: TokenSource>(source: &S) -> Result<Self, S::Error>` | Always |
 | `reload` | `fn reload<S: TokenSource>(&mut self, source: &S) -> Result<(), S::Error>` | Always |
 | `try_load` | `fn try_load() -> Result<Self, ThemeBuildError>` | build.rs path |
-| `try_load_with_seed` | `fn try_load_with_seed(seed: Color) -> Result<Self, ThemeBuildError>` | build.rs path |
-| `try_set_seed` | `fn try_set_seed(&mut self, seed: Color) -> Result<(), ThemeBuildError>` | build.rs path |
+| `try_load_with_seed` | `fn try_load_with_seed(seed: Color) -> Result<Self, ThemeBuildError>` | legacy build.rs path |
+| `try_set_seed` | `fn try_set_seed(&mut self, seed: Color) -> Result<(), ThemeBuildError>` | legacy build.rs path |
 
 `try_from_source` and `reload` also require every token value type in the
 contract to implement `ThemeValue<S>` for the provided source.

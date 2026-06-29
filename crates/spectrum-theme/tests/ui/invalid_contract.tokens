@@ -1,0 +1,10 @@
+pub struct BrokenContract {
+    component ButtonTokens {
+        fg: spectrum_theme::Color,
+    }
+
+    states button: ButtonTokens {
+        normal,
+        hover extends missing,
+    }
+}
