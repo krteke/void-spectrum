@@ -2,9 +2,6 @@
 
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
-use spectrum_core::{Color, ShadowLayer};
-use spectrum_resolver::{ColorBinding, ResolvedTheme, resolve_theme};
-use spectrum_schema::{ThemeMode, ThemeSpec};
 use std::{
     collections::{BTreeMap, BTreeSet},
     env, fs,
@@ -23,8 +20,7 @@ pub use error::CodegenError;
 #[derive(Debug, Clone)]
 pub struct ThemeCodegen {
     source_path: PathBuf,
-    contract_path: Option<PathBuf>,
-    struct_name: Option<String>,
+    contract_path: PathBuf,
     visibility: String,
     output_file: String,
     facade_path: String,
@@ -32,19 +28,6 @@ pub struct ThemeCodegen {
 }
 
 impl ThemeCodegen {
-    /// Creates a generator for `source_path` that emits `struct_name`.
-    pub fn new(source_path: impl Into<PathBuf>, struct_name: impl Into<String>) -> Self {
-        Self {
-            source_path: source_path.into(),
-            contract_path: None,
-            struct_name: Some(struct_name.into()),
-            visibility: "pub".to_owned(),
-            output_file: "theme_tokens.rs".to_owned(),
-            facade_path: "::spectrum_theme".to_owned(),
-            emit_rerun_if_changed: true,
-        }
-    }
-
     /// Creates a generator from an external contract and a contract-aware TOML values file.
     pub fn from_contract(
         contract_path: impl Into<PathBuf>,
@@ -52,8 +35,7 @@ impl ThemeCodegen {
     ) -> Self {
         Self {
             source_path: values_path.into(),
-            contract_path: Some(contract_path.into()),
-            struct_name: None,
+            contract_path: contract_path.into(),
             visibility: "pub".to_owned(),
             output_file: "theme_tokens.rs".to_owned(),
             facade_path: "::spectrum_theme".to_owned(),
@@ -105,9 +87,7 @@ impl ThemeCodegen {
         })?;
         if self.emit_rerun_if_changed {
             println!("cargo:rerun-if-changed={}", self.source_path.display());
-            if let Some(contract_path) = &self.contract_path {
-                println!("cargo:rerun-if-changed={}", contract_path.display());
-            }
+            println!("cargo:rerun-if-changed={}", self.contract_path.display());
         }
         Ok(output_path.to_owned())
     }
@@ -116,31 +96,13 @@ impl ThemeCodegen {
     pub fn generate_string(&self) -> Result<String, CodegenError> {
         let facade = syn::parse_str::<TokenStream2>(&self.facade_path)
             .map_err(CodegenError::InvalidContract)?;
-        if let Some(contract_path) = &self.contract_path {
-            return self.generate_contract_string(contract_path, &facade);
-        }
-        let visibility: Visibility =
-            syn::parse_str(&self.visibility).map_err(CodegenError::InvalidContract)?;
-        let name = syn::parse_str::<Ident>(
-            self.struct_name
-                .as_deref()
-                .expect("legacy theme generator has a struct name"),
-        )
-        .map_err(CodegenError::InvalidContract)?;
-        let resolved = resolve_theme_file(&self.source_path)?;
-        let tokens = tokens_from_theme(&resolved, Span::call_site(), &facade)?;
-        let schema = ThemeSchema(Vec::new(), visibility, name, tokens);
-        Ok(expand_schema(schema, Some(resolved), &facade).to_string())
+        self.generate_contract_string(&facade)
     }
 
-    fn generate_contract_string(
-        &self,
-        contract_path: &Path,
-        facade: &TokenStream2,
-    ) -> Result<String, CodegenError> {
+    fn generate_contract_string(&self, facade: &TokenStream2) -> Result<String, CodegenError> {
         let contract =
-            fs::read_to_string(contract_path).map_err(|source| CodegenError::ReadSource {
-                path: contract_path.to_owned(),
+            fs::read_to_string(&self.contract_path).map_err(|source| CodegenError::ReadSource {
+                path: self.contract_path.clone(),
                 source,
             })?;
         let schema: ThemeSchema =
@@ -156,7 +118,7 @@ impl ThemeCodegen {
                 path: self.source_path.clone(),
                 source,
             })?;
-        Ok(expand_schema_inner(schema, Some(EmbeddedSource::Toml(values)), facade).to_string())
+        Ok(expand_schema_inner(schema, Some(&values), facade).to_string())
     }
 }
 
@@ -182,11 +144,6 @@ struct StateSet {
 struct StateVariant {
     name: Ident,
     extends: Option<Ident>,
-}
-
-enum EmbeddedSource {
-    Resolved(Box<ResolvedTheme>),
-    Toml(String),
 }
 
 mod keyword {
@@ -313,21 +270,13 @@ fn validate_state_chain(states: &[StateVariant], state: &StateVariant) -> SynRes
 
 /// Expands a parsed schema into Rust tokens.
 #[must_use]
-pub fn expand_schema(
-    schema: ThemeSchema,
-    embedded: Option<ResolvedTheme>,
-    facade: &TokenStream2,
-) -> TokenStream2 {
-    expand_schema_inner(
-        schema,
-        embedded.map(|theme| EmbeddedSource::Resolved(Box::new(theme))),
-        facade,
-    )
+pub fn expand_schema(schema: ThemeSchema, facade: &TokenStream2) -> TokenStream2 {
+    expand_schema_inner(schema, None, facade)
 }
 
 fn expand_schema_inner(
     schema: ThemeSchema,
-    embedded: Option<EmbeddedSource>,
+    embedded_toml: Option<&str>,
     facade: &TokenStream2,
 ) -> TokenStream2 {
     let ThemeSchema(attrs, visibility, name, tokens) = schema;
@@ -350,7 +299,7 @@ fn expand_schema_inner(
         &mut generated,
     );
     let reload_assignments = expand_reload(&tokens, &components, &mut Vec::new(), facade);
-    let loader = embedded.map(|source| embedded_loader(&name, &visibility, source, facade));
+    let loader = embedded_toml.map(|source| embedded_loader(&name, &visibility, source, facade));
 
     quote! {
         #(#generated)*
@@ -389,63 +338,24 @@ fn expand_schema_inner(
 fn embedded_loader(
     name: &Ident,
     visibility: &Visibility,
-    source: EmbeddedSource,
+    source: &str,
     facade: &TokenStream2,
 ) -> TokenStream2 {
-    match source {
-        EmbeddedSource::Resolved(theme) => {
-            let seed_update = seed_update_expr(&theme, facade);
-            let theme = resolved_theme_expr(&theme, facade);
-            quote! {
-                impl #name {
-                    fn __embedded_theme() -> &'static #facade::__private::ResolvedTheme {
-                        static THEME: ::std::sync::OnceLock<#facade::__private::ResolvedTheme> =
-                            ::std::sync::OnceLock::new();
-                        THEME.get_or_init(|| #theme)
-                    }
-
-                    #[allow(missing_docs)]
-                    #visibility fn try_load() -> Result<Self, #facade::ThemeBuildError> {
-                        Self::try_from_source(Self::__embedded_theme())
-                    }
-
-                    #[allow(missing_docs)]
-                    #visibility fn try_load_with_seed(
-                        seed: #facade::Color,
-                    ) -> Result<Self, #facade::ThemeBuildError> {
-                        let source =
-                            #facade::__private::SeededTheme::new(Self::__embedded_theme(), seed);
-                        Self::try_from_source(&source)
-                    }
-
-                    #[allow(missing_docs)]
-                    #visibility fn try_set_seed(
-                        &mut self,
-                        seed: #facade::Color,
-                    ) -> Result<(), #facade::ThemeBuildError> {
-                        #seed_update
-                    }
-                }
+    let source = LitStr::new(source, Span::call_site());
+    quote! {
+        impl #name {
+            fn __embedded_source() -> &'static #facade::config::TomlThemeSource {
+                static SOURCE: ::std::sync::OnceLock<#facade::config::TomlThemeSource> =
+                    ::std::sync::OnceLock::new();
+                SOURCE.get_or_init(|| {
+                    #facade::config::TomlThemeSource::parse(#source)
+                        .expect("embedded TOML theme source was validated at compile time")
+                })
             }
-        }
-        EmbeddedSource::Toml(source) => {
-            let source = LitStr::new(&source, Span::call_site());
-            quote! {
-                impl #name {
-                    fn __embedded_source() -> &'static #facade::config::TomlThemeSource {
-                        static SOURCE: ::std::sync::OnceLock<#facade::config::TomlThemeSource> =
-                            ::std::sync::OnceLock::new();
-                        SOURCE.get_or_init(|| {
-                            #facade::config::TomlThemeSource::parse(#source)
-                                .expect("embedded TOML theme source was validated at compile time")
-                        })
-                    }
 
-                    #[allow(missing_docs)]
-                    #visibility fn try_load() -> Result<Self, #facade::ThemeBuildError> {
-                        Self::try_from_source(Self::__embedded_source())
-                    }
-                }
+            #[allow(missing_docs)]
+            #visibility fn try_load() -> Result<Self, #facade::ThemeBuildError> {
+                Self::try_from_source(Self::__embedded_source())
             }
         }
     }
@@ -510,295 +420,6 @@ fn collect_components_into(tokens: &[Token], components: &mut BTreeMap<String, V
             Token::Group(_, children) => collect_components_into(children, components),
             Token::Value(_, _) | Token::States(_) => {}
         }
-    }
-}
-
-fn resolve_theme_file(path: &Path) -> Result<ResolvedTheme, CodegenError> {
-    let source = fs::read_to_string(path).map_err(|source| CodegenError::ReadSource {
-        path: path.to_owned(),
-        source,
-    })?;
-    let spec: ThemeSpec = toml::from_str(&source).map_err(|source| CodegenError::ParseToml {
-        path: path.to_owned(),
-        source,
-    })?;
-    resolve_theme(&spec).map_err(|source| CodegenError::Resolve {
-        path: path.to_owned(),
-        source,
-    })
-}
-
-fn tokens_from_theme(
-    theme: &ResolvedTheme,
-    span: Span,
-    facade: &TokenStream2,
-) -> Result<Vec<Token>, CodegenError> {
-    let color: Type = syn::parse2(quote!(#facade::Color)).map_err(CodegenError::InvalidContract)?;
-    let length: Type =
-        syn::parse2(quote!(#facade::Length)).map_err(CodegenError::InvalidContract)?;
-    let radius: Type =
-        syn::parse2(quote!(#facade::Radius)).map_err(CodegenError::InvalidContract)?;
-    let font_weight: Type =
-        syn::parse2(quote!(#facade::FontWeight)).map_err(CodegenError::InvalidContract)?;
-    let font_style: Type =
-        syn::parse2(quote!(#facade::FontStyle)).map_err(CodegenError::InvalidContract)?;
-    let line_height: Type =
-        syn::parse2(quote!(#facade::LineHeight)).map_err(CodegenError::InvalidContract)?;
-    let shadow: Type =
-        syn::parse2(quote!(#facade::ShadowLayer)).map_err(CodegenError::InvalidContract)?;
-    let entries = theme
-        .colors
-        .keys()
-        .map(|path| (token_segments(path), color.clone()))
-        .chain(
-            theme
-                .lengths
-                .keys()
-                .map(|path| (token_segments(path), length.clone())),
-        )
-        .chain(
-            theme
-                .radii
-                .keys()
-                .map(|path| (token_segments(path), radius.clone())),
-        )
-        .chain(
-            theme
-                .font_weights
-                .keys()
-                .map(|path| (token_segments(path), font_weight.clone())),
-        )
-        .chain(
-            theme
-                .font_styles
-                .keys()
-                .map(|path| (token_segments(path), font_style.clone())),
-        )
-        .chain(
-            theme
-                .line_heights
-                .keys()
-                .map(|path| (token_segments(path), line_height.clone())),
-        )
-        .chain(
-            theme
-                .shadows
-                .iter()
-                .map(|(path, _)| (token_segments(path), shadow.clone())),
-        )
-        .collect::<Vec<_>>();
-    file_tokens(&entries, span).map_err(CodegenError::InvalidContract)
-}
-
-fn seed_update_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStream2 {
-    let bindings = theme
-        .colors
-        .iter()
-        .filter_map(|(path, binding)| match binding {
-            ColorBinding::Material(role) => Some((path, role)),
-            ColorBinding::Color(_) => None,
-        });
-    let mut bindings = bindings.peekable();
-    let Some((first_path, _)) = bindings.peek() else {
-        return quote!(Ok(()));
-    };
-    let mode = match theme.meta.mode {
-        ThemeMode::Dark => quote!(#facade::__private::ThemeMode::Dark),
-        ThemeMode::Light => quote!(#facade::__private::ThemeMode::Light),
-    };
-    let first_path = LitStr::new(first_path, Span::call_site());
-    let updates = bindings.map(|(path, role)| {
-        let fields = path
-            .split('.')
-            .map(|segment| syn::parse_str::<Ident>(segment).expect("validated token path"));
-        let role = role.name();
-        quote! {
-            self.#(#fields).* = material.resolve(
-                #facade::__private::MaterialColor::from_name(#role)
-                    .expect("embedded Material role was validated")
-            );
-        }
-    });
-    quote! {
-        let material = #facade::__private::material_colors(seed, #mode, #first_path)?;
-        #(#updates)*
-        Ok(())
-    }
-}
-
-fn token_segments(path: &str) -> Vec<String> {
-    path.split('.').map(str::to_owned).collect()
-}
-
-fn file_tokens(paths: &[(Vec<String>, Type)], span: Span) -> SynResult<Vec<Token>> {
-    let mut grouped = BTreeMap::<String, Vec<(Vec<String>, Type)>>::new();
-    for (path, ty) in paths {
-        let (head, tail) = path.split_first().expect("split path has a segment");
-        grouped
-            .entry(head.clone())
-            .or_default()
-            .push((tail.to_vec(), ty.clone()));
-    }
-    grouped
-        .into_iter()
-        .map(|(name, children)| {
-            let name = syn::parse_str::<Ident>(&name)
-                .map_err(|_| syn::Error::new(span, "invalid Rust token path"))?;
-            if children.len() == 1 && children[0].0.is_empty() {
-                Ok(Token::Value(name, Box::new(children[0].1.clone())))
-            } else if children.iter().any(|(path, _)| path.is_empty()) {
-                Err(syn::Error::new(span, "token path is both value and group"))
-            } else {
-                Ok(Token::Group(name, file_tokens(&children, span)?))
-            }
-        })
-        .collect()
-}
-
-fn resolved_theme_expr(theme: &ResolvedTheme, facade: &TokenStream2) -> TokenStream2 {
-    let meta = &theme.meta;
-    let name = &meta.name;
-    let author = option_string(meta.author.as_ref());
-    let version = option_string(meta.version.as_ref());
-    let description = option_string(meta.description.as_ref());
-    let mode = match meta.mode {
-        ThemeMode::Dark => quote!(#facade::__private::ThemeMode::Dark),
-        ThemeMode::Light => quote!(#facade::__private::ThemeMode::Light),
-    };
-    let seed = option_color(theme.seed, facade);
-    let colors = theme.colors.iter().map(|(path, binding)| {
-        let path = LitStr::new(path, Span::call_site());
-        let binding = binding_expr(*binding, facade);
-        quote!((#path.to_owned(), #binding))
-    });
-    let lengths = theme.lengths.iter().map(|(path, length)| {
-        let path = LitStr::new(path, Span::call_site());
-        let length = length.to_string();
-        quote!((
-            #path.to_owned(),
-            #length.parse::<#facade::Length>()
-                .expect("embedded length was validated at compile time")
-        ))
-    });
-    let radii = theme.radii.iter().map(|(path, radius)| {
-        let path = LitStr::new(path, Span::call_site());
-        let radius = radius.to_string();
-        quote!((
-            #path.to_owned(),
-            #radius.parse::<#facade::Radius>()
-                .expect("embedded radius was validated at compile time")
-        ))
-    });
-    let font_weights = theme.font_weights.iter().map(|(path, weight)| {
-        let path = LitStr::new(path, Span::call_site());
-        let weight = weight.value();
-        quote!((
-            #path.to_owned(),
-            #facade::FontWeight::new(#weight)
-                .expect("embedded font weight was validated at compile time")
-        ))
-    });
-    let font_styles = theme.font_styles.iter().map(|(path, style)| {
-        let path = LitStr::new(path, Span::call_site());
-        let style = style.to_string();
-        quote!((
-            #path.to_owned(),
-            #style.parse::<#facade::FontStyle>()
-                .expect("embedded font style was validated at compile time")
-        ))
-    });
-    let line_heights = theme.line_heights.iter().map(|(path, line_height)| {
-        let path = LitStr::new(path, Span::call_site());
-        let line_height = line_height.to_string();
-        quote!((
-            #path.to_owned(),
-            #line_height.parse::<#facade::LineHeight>()
-                .expect("embedded line height was validated at compile time")
-        ))
-    });
-    let shadows = theme.shadows.iter().map(|(path, shadow)| {
-        let path = LitStr::new(path, Span::call_site());
-        let shadow = shadow_expr(*shadow, facade);
-        quote!((#path.to_owned(), #shadow))
-    });
-
-    quote! {
-        #facade::__private::ResolvedTheme {
-            meta: #facade::__private::ThemeMeta {
-                name: #name.to_owned(),
-                author: #author,
-                mode: #mode,
-                version: #version,
-                description: #description,
-            },
-            seed: #seed,
-            colors: ::std::collections::BTreeMap::from([#(#colors),*]),
-            lengths: ::std::collections::BTreeMap::from([#(#lengths),*]),
-            radii: ::std::collections::BTreeMap::from([#(#radii),*]),
-            font_weights: ::std::collections::BTreeMap::from([#(#font_weights),*]),
-            font_styles: ::std::collections::BTreeMap::from([#(#font_styles),*]),
-            line_heights: ::std::collections::BTreeMap::from([#(#line_heights),*]),
-            shadows: ::std::vec![#(#shadows),*],
-        }
-    }
-}
-
-fn shadow_expr(shadow: ShadowLayer, facade: &TokenStream2) -> TokenStream2 {
-    let color = color_expr(shadow.color(), facade);
-    let lengths = [
-        shadow.offset_x(),
-        shadow.offset_y(),
-        shadow.blur(),
-        shadow.spread(),
-    ]
-    .map(|length| length.to_string());
-    let [offset_x, offset_y, blur, spread] = lengths;
-    quote!(#facade::ShadowLayer::new(
-        #color,
-        #offset_x.parse().expect("embedded shadow offset was validated"),
-        #offset_y.parse().expect("embedded shadow offset was validated"),
-        #blur.parse().expect("embedded shadow blur was validated"),
-        #spread.parse().expect("embedded shadow spread was validated"),
-    ).expect("embedded shadow was validated"))
-}
-
-fn option_string(value: Option<&String>) -> TokenStream2 {
-    value.map_or_else(|| quote!(None), |value| quote!(Some(#value.to_owned())))
-}
-
-fn option_color(value: Option<Color>, facade: &TokenStream2) -> TokenStream2 {
-    value.map_or_else(
-        || quote!(None),
-        |color| {
-            let color = color_expr(color, facade);
-            quote!(Some(#color))
-        },
-    )
-}
-
-fn binding_expr(binding: ColorBinding, facade: &TokenStream2) -> TokenStream2 {
-    match binding {
-        ColorBinding::Color(color) => {
-            let color = color_expr(color, facade);
-            quote!(#facade::__private::ColorBinding::Color(#color))
-        }
-        ColorBinding::Material(role) => {
-            let role = role.name();
-            quote!(
-                #facade::__private::ColorBinding::Material(
-                    #facade::__private::MaterialColor::from_name(#role)
-                        .expect("embedded Material role was validated at compile time")
-                )
-            )
-        }
-    }
-}
-
-fn color_expr(color: Color, facade: &TokenStream2) -> TokenStream2 {
-    let (red, green, blue, alpha) = (color.red(), color.green(), color.blue(), color.alpha());
-    match color {
-        Color::Rgb(_) => quote!(#facade::Color::new(#red, #green, #blue)),
-        Color::Rgba(_) => quote!(#facade::Color::new_rgba(#red, #green, #blue, #alpha)),
     }
 }
 

@@ -5,10 +5,9 @@ workspace manifest.
 
 | Dependency | Intended use | Decision |
 | --- | --- | --- |
-| `serde` | Schema and optional core serialization | Include |
-| `serde_json` | JSON theme configuration | Optional feature |
-| `toml` | TOML theme configuration | Optional feature |
-| `thiserror` | Stable resolver error categories and sources | Include |
+| `serde` | Optional core serialization | Include |
+| `toml` | Contract-aware TOML source loading | Optional feature |
+| `thiserror` | Stable error categories and sources | Include |
 | `proc-macro2` | Procedural macro token model | Include in macro crate |
 | `quote` | Procedural macro output | Include in macro crate |
 | `syn` | Procedural macro input parsing | Include in macro crate |

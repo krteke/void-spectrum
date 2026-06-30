@@ -34,12 +34,12 @@ define_theme_tokens! {
 
 | | `define_theme_tokens!` | `build.rs` + `ThemeCodegen` |
 |---|---|---|
-| 令牌结构来源 | 手写 DSL | 外部 contract DSL，或 legacy TOML 自动推导 |
+| 令牌结构来源 | 手写 DSL | 外部 contract DSL |
 | 主题数据 | 运行时提供 | 编译期嵌入二进制 |
-| 是否需外部文件 | 否 | 需 contract + TOML，或 legacy TOML |
+| 是否需外部文件 | 否 | 需 contract + TOML |
 | IDE 补全 | ✅ 宏展开可见 | ✅ `include!` 真实文件 |
 | Material 颜色 | ✅ 手动指定 seed | ✅ TOML 中声明 |
-| `try_load` / `try_set_seed` | ❌ | 始终有 `try_load`；seed setter 仅 legacy embedded theme 有 |
+| `try_load` | ❌ | ✅ |
 
 ---
 
@@ -240,24 +240,6 @@ impl ThemeValue<MySource> for ShadowLayer {
 let theme = FullTheme::try_from_source(&MySource).unwrap();
 ```
 
-### Legacy：搭配 ResolvedTheme
-
-`ResolvedTheme` 是固定 `ThemeSpec` resolver 的输出，内部已支持内置主题值类型。
-这条路径适合旧的 flat TOML 和 resolver 测试；它的 schema 是固定的，不能承载用户自定义
-token 类型。新代码优先使用下一节的 contract-aware source：
-
-```rust
-use spectrum_schema::ThemeSpec;
-use spectrum_resolver::resolve_theme;
-
-// 运行时解析 TOML、展开引用、派生 Material 颜色
-let spec: ThemeSpec = toml::from_str(&fs::read_to_string("theme.toml")?).unwrap();
-let resolved = resolve_theme(&spec).unwrap();
-
-// 直接传入——ResolvedTheme 就是 TokenSource
-let theme = FullTheme::try_from_source(&resolved).unwrap();
-```
-
 ### Contract-Aware TOML Source
 
 启用 `toml` feature 后，生成契约可以直接读取 TOML 表结构。字段类型来自契约本身，
@@ -308,10 +290,10 @@ spread = "0px"
 
 ```rust
 // 加载主题 A
-let mut theme = FullTheme::try_from_source(&resolved_a).unwrap();
+let mut theme = FullTheme::try_from_source(&source_a).unwrap();
 
 // 运行时切换到主题 B——原地更新，不重建实例
-theme.reload(&resolved_b).unwrap();
+theme.reload(&source_b).unwrap();
 ```
 
 ---
@@ -381,136 +363,21 @@ include!(concat!(env!("OUT_DIR"), "/theme_tokens.rs"));
 
 fn main() {
     let theme = AppTheme::try_load().unwrap();
-    let hover = theme.button.hover;
+    let hover = theme.button_state.hover;
 }
 ```
 
 `from_contract` 会在构建期校验外部契约和 TOML 语法。生成的 `try_load` 使用
 `TomlThemeSource`，因此消费 crate 需要启用 `spectrum-theme` 的 `toml` feature。
 
-## Legacy 路径：从扁平 TOML 推导类型契约
-
-### 第一步：创建 `theme.toml`
-
-放在项目根目录或 `src/` 下：
-
-```toml
-[meta]
-name = "Dawn"
-mode = "light"
-author = "Alice"
-version = "1.0"
-description = "A warm light theme"
-
-seed = "#6750a4"
-
-# ── 颜色（支持直接值、引用、Material role） ──
-[colors]
-"surface.background" = "#fef7ff"
-"surface.foreground" = "#1d1b20"
-"accent.primary" = "{material.primary}"
-"accent.on_primary" = "{material.on_primary}"
-"status.success" = "#2e7d32"
-"border.default" = "{surface.foreground}"          # 引用同文件内的其他令牌
-
-# ── 长度 ──
-[lengths]
-"spacing.xs" = "4px"
-"spacing.sm" = "8px"
-"spacing.md" = "16px"
-"editor.line_height" = "1.5"
-
-# ── 圆角 ──
-[radii]
-"radius.sm" = "4px"
-"radius.md" = "8px"
-"radius.full" = "9999px"
-
-# ── 字体粗细 ──
-[font_weights]
-"font.body" = "400"
-"font.heading" = "700"
-
-# ── 字体样式 ──
-[font_styles]
-"font.body" = "normal"
-"font.code" = "italic"
-
-# ── 行高 ──
-[line_heights]
-"line_height.body" = "1.5"
-"line_height.heading" = "1.2"
-
-# ── 阴影 ──
-[[shadows]]
-path = "shadow.sm"
-color = "#00000026"
-offset_x = "0px"
-offset_y = "1px"
-blur = "2px"
-spread = "0px"
-
-[[shadows]]
-path = "shadow.md"
-color = "#00000033"
-offset_x = "0px"
-offset_y = "4px"
-blur = "8px"
-spread = "0px"
-```
-
-### 第二步：创建 `build.rs`
-
-```rust
-// build.rs
-use spectrum_codegen::ThemeCodegen;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ThemeCodegen::new("theme.toml", "AppTheme").generate()?;
-    Ok(())
-}
-```
-
-### 第三步：配置 `Cargo.toml`
-
-```toml
-[build-dependencies]
-spectrum-codegen = "0.1"
-
-[dependencies]
-spectrum-theme = "0.1"
-```
-
-### 第四步：在源码中引入
-
-```rust
-// src/main.rs
-use spectrum_theme::Color;
-
-include!(concat!(env!("OUT_DIR"), "/theme_tokens.rs"));
-// ↑ 该文件由 build.rs 在编译期生成，rust-analyzer 会完整索引
-
-fn main() {
-    // 用编译期嵌入的默认数据
-    let theme = AppTheme::try_load().unwrap();
-
-    // 运行时换品牌色——Material 颜色会根据新 seed 重算
-    let red = AppTheme::try_load_with_seed(Color::new(255, 0, 0)).unwrap();
-
-    // 原地换品牌色——只更新 Material 字段
-    let mut theme = AppTheme::try_load().unwrap();
-    theme.try_set_seed(Color::new(255, 0, 0)).unwrap();
-}
-```
-
 ### 多个主题文件
 
 ```rust
 // build.rs
-ThemeCodegen::new("themes/dark.toml", "DarkTheme")
+ThemeCodegen::from_contract("themes/app.tokens", "themes/dark.toml")
     .output_file("dark_tokens.rs")
     .generate()?;
-ThemeCodegen::new("themes/light.toml", "LightTheme")
+ThemeCodegen::from_contract("themes/app.tokens", "themes/light.toml")
     .output_file("light_tokens.rs")
     .generate()?;
 ```
@@ -533,12 +400,6 @@ ThemeCodegen::from_contract("src/theme.tokens", "src/theme.toml")
     .output_file("theme_tokens.rs")
     .facade_path("::spectrum_theme")
     .generate()?;
-
-ThemeCodegen::new("src/theme.toml", "MyTheme")
-    .visibility("pub(crate)")          // 默认 "pub"
-    .output_file("my_theme_tokens.rs") // 默认 "theme_tokens.rs"
-    .facade_path("::spectrum_theme")   // 默认值，一般不碰
-    .generate()?;
 ```
 
 ---
@@ -552,23 +413,18 @@ ThemeCodegen::new("src/theme.toml", "MyTheme")
 | `try_from_source` | `fn try_from_source<S: TokenSource>(source: &S) -> Result<Self, S::Error>` | 始终 |
 | `reload` | `fn reload<S: TokenSource>(&mut self, source: &S) -> Result<(), S::Error>` | 始终 |
 | `try_load` | `fn try_load() -> Result<Self, ThemeBuildError>` | build.rs 路径 |
-| `try_load_with_seed` | `fn try_load_with_seed(seed: Color) -> Result<Self, ThemeBuildError>` | legacy build.rs 路径 |
-| `try_set_seed` | `fn try_set_seed(&mut self, seed: Color) -> Result<(), ThemeBuildError>` | legacy build.rs 路径 |
 
 `try_from_source` 和 `reload` 还要求契约中的每个 token 值类型都为传入的 source 实现
 `ThemeValue<S>`。
 
 ```rust
 // ─── 手写 DSL 路径（无嵌入数据） ───
-let mut theme = AppTheme::try_from_source(&resolved).unwrap();
-theme.reload(&new_resolved).unwrap();
+let mut theme = AppTheme::try_from_source(&source).unwrap();
+theme.reload(&new_source).unwrap();
 
 // ─── build.rs 路径（有嵌入数据） ───
-let theme = AppTheme::try_load().unwrap();                                // 嵌入默认主题
-let red = AppTheme::try_load_with_seed(Color::new(255,0,0)).unwrap();     // 换品牌色
-let mut theme = AppTheme::try_load().unwrap();
-theme.try_set_seed(Color::new(255,0,0)).unwrap();                         // 原地换品牌色
-theme.reload(&other_resolved).unwrap();                                    // 整主题替换
+let mut theme = AppTheme::try_load().unwrap();                             // 嵌入默认主题
+theme.reload(&other_source).unwrap();                                       // 整主题替换
 ```
 
 ---
@@ -594,39 +450,40 @@ seed = "#6750a4"       # RGB
 seed = "#6750a480"     # RGBA
 ```
 
-### `[colors]` — 颜色令牌
+### Contract Token 表
 
-值可以是：
-
-```toml
-# 直接颜色
-"surface.bg" = "#1e1e2e"
-
-# 引用同文件内的其他令牌
-"border.focus" = "{accent.primary}"
-
-# Material 角色
-"accent.primary" = "{material.primary}"
-```
-
-状态集合令牌使用与生成契约一致的扁平路径：
+token path 来自生成契约。嵌套字段映射为 TOML 表，最后一级字段名是标量 key：
 
 ```toml
-[colors]
-"button.normal.fg" = "#ffffff"
-"button.normal.bg" = "{material.primary}"
-"button.normal.border" = "{material.outline}"
-"button.hover.bg" = "{material.primary_container}"
-"button.hover.border" = "{material.primary}"
-"button.press_down.bg" = "#4f378b"
-"button.focus.border" = "{material.primary}"
+[surface]
+bg = "#1e1e2e"
 
-[radii]
-"button.normal.radius" = "8px"
+[accent]
+primary = "{material.primary}"
+
+[border]
+focus = "{accent.primary}"
 ```
 
-缺失的状态字段会沿生成契约里的 `extends` 链继承。因此上面的 `hover.fg`、`press_down.fg`
-以及所有状态的 `radius` 都会读取 `button.normal` 中的值。
+无状态组件实例和状态集合也使用同样规则：
+
+```toml
+[button]
+fg = "#ffffff"
+bg = "{material.primary}"
+radius = "8px"
+
+[nav_button.normal]
+fg = "#ffffff"
+bg = "{material.primary}"
+radius = "8px"
+
+[nav_button.hover]
+bg = "{material.primary_container}"
+```
+
+缺失的状态字段会沿生成契约里的 `extends` 链继承。因此上面的
+`nav_button.hover.fg` 和 `nav_button.hover.radius` 会读取 `nav_button.normal` 中的值。
 
 ### Material 颜色角色
 
@@ -682,58 +539,29 @@ seed = "#6750a480"     # RGBA
 | `material.error_container` | 错误容器色 |
 | `material.on_error_container` | 错误容器上的内容色 |
 
-### `[lengths]` — 长度令牌
+### 标量值
 
-支持 `px`、`rem`、`em` 等单位：
+内置值会按照契约字段类型从标量字符串解析。自定义值可以实现
+`ThemeValue<TomlThemeSource>`，并解析 `source.token_text(path)` 返回的原始字符串。
 
 ```toml
-[lengths]
-"spacing.sm" = "4px"
-"spacing.lg" = "2rem"
-"editor.gutter" = "3em"
+[spacing]
+sm = "4px"
+lg = "2rem"
+
+[font]
+body = "400"
+style = "italic"
+
+[line_height]
+body = "1.5"
+code = "20px"
 ```
 
-### `[radii]` — 圆角令牌
+### 阴影令牌
 
 ```toml
-[radii]
-"radius.sm" = "4px"
-"radius.full" = "9999px"
-```
-
-### `[font_weights]` — 字体粗细令牌
-
-```toml
-[font_weights]
-"font.body" = "400"
-"font.bold" = "700"
-```
-
-### `[font_styles]` — 字体样式令牌
-
-支持 `"normal"`、`"italic"`、`"oblique"`：
-
-```toml
-[font_styles]
-"font.body" = "normal"
-"font.code" = "italic"
-```
-
-### `[line_heights]` — 行高令牌
-
-支持裸数字（无单位）、`px`、`rem`：
-
-```toml
-[line_heights]
-"line_height.body" = "1.5"
-"line_height.code" = "20px"
-```
-
-### `[[shadows]]` — 阴影令牌
-
-```toml
-[[shadows]]
-path = "shadow.card"
+[shadow.card]
 color = "#00000033"
 offset_x = "0px"
 offset_y = "4px"
@@ -786,7 +614,7 @@ assert_eq!(theme.spacing.pad.0, 12);
 
 ```toml
 [dependencies]
-spectrum-theme = { version = "0.1", features = ["macros", "seed", "serde"] }
+spectrum-theme = { version = "0.1", features = ["macros", "toml", "seed"] }
 ```
 
 | Feature | 作用 |
@@ -794,6 +622,6 @@ spectrum-theme = { version = "0.1", features = ["macros", "seed", "serde"] }
 | `macros` | 启用 `define_theme_tokens!` 宏 |
 | `seed` | 启用 Material 颜色派生（`material.primary` 等） |
 | `serde` | 为核心类型启用 serde 序列化 |
-| `json` | 启用 JSON 格式的主题文件加载（schema 层） |
-| `toml` | 启用 TOML 格式的主题文件加载（schema 层） |
-| `export` | 启用导出基础设施（CSS、Design Tokens JSON 等） |
+| `toml` | 启用 contract-aware TOML source 加载 |
+| `ratatui` | 启用 Ratatui adapter 重导出 |
+| `iced` | 启用 iced adapter 重导出 |

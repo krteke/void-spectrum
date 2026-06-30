@@ -26,20 +26,6 @@ fn parse_schema_error(input: TokenStream) -> String {
 }
 
 #[test]
-fn generates_typed_contract_from_theme_file() {
-    let code = ThemeCodegen::new(fixture("data/theme.toml"), "FileTheme")
-        .emit_rerun_if_changed(false)
-        .generate_string()
-        .expect("generated code");
-
-    assert!(code.contains("pub struct FileTheme"));
-    assert!(code.contains("try_load"));
-    assert!(code.contains("try_load_with_seed"));
-    assert!(code.contains("try_set_seed"));
-    assert!(code.contains("background"));
-}
-
-#[test]
 fn generates_typed_contract_from_external_contract_and_values() {
     let code = ThemeCodegen::from_contract(
         fixture("data/contract.tokens"),
@@ -55,7 +41,6 @@ fn generates_typed_contract_from_external_contract_and_values() {
     assert!(code.contains("ContractFileThemeButtonStates"));
     assert!(code.contains("TomlThemeSource"));
     assert!(code.contains("try_load"));
-    assert!(!code.contains("try_load_with_seed"));
 }
 
 #[test]
@@ -75,11 +60,10 @@ fn expand_schema_supports_stateless_component_instances() {
     ))
     .expect("valid schema");
 
-    let code = expand_schema(schema, None, &facade()).to_string();
+    let code = expand_schema(schema, &facade()).to_string();
 
     assert!(code.contains("source :: TokenSource"));
     assert!(code.contains("source :: ThemeValue"));
-    assert!(!code.contains("__private :: TokenSource"));
     assert!(code.contains("pub button : ButtonTokens"));
     assert!(code.contains("\"button.fg\""));
     assert!(code.contains("\"toolbar.primary.bg\""));
@@ -91,16 +75,19 @@ fn writes_generated_contract_to_requested_path() {
     fs::create_dir_all(&dir).expect("temp dir");
     let output = dir.join("tokens.rs");
 
-    let path = ThemeCodegen::new(fixture("data/theme.toml"), "FileTheme")
-        .emit_rerun_if_changed(false)
-        .generate_to(&output)
-        .expect("generated file");
+    let path = ThemeCodegen::from_contract(
+        fixture("data/contract.tokens"),
+        fixture("data/contract-values.toml"),
+    )
+    .emit_rerun_if_changed(false)
+    .generate_to(&output)
+    .expect("generated file");
 
     assert_eq!(path, output);
     assert!(
         fs::read_to_string(path)
             .expect("generated source")
-            .contains("FileTheme")
+            .contains("ContractFileTheme")
     );
 }
 
@@ -118,29 +105,6 @@ fn rejects_invalid_external_contracts() {
 }
 
 #[test]
-fn rejects_invalid_schema() {
-    let error = ThemeCodegen::new(fixture("ui/invalid_schema.toml"), "InvalidSchema")
-        .emit_rerun_if_changed(false)
-        .generate_string()
-        .expect_err("invalid schema");
-
-    assert!(matches!(error, CodegenError::ParseToml { .. }));
-}
-
-#[test]
-fn rejects_unresolved_references() {
-    let error = ThemeCodegen::new(
-        fixture("ui/unresolved_reference.toml"),
-        "UnresolvedReference",
-    )
-    .emit_rerun_if_changed(false)
-    .generate_string()
-    .expect_err("unresolved reference");
-
-    assert!(matches!(error, CodegenError::Resolve { .. }));
-}
-
-#[test]
 fn expand_schema_passes_attributes_to_top_level_struct() {
     let schema: ThemeSchema = syn::parse2(quote::quote!(
         #[derive(Clone)]
@@ -152,7 +116,7 @@ fn expand_schema_passes_attributes_to_top_level_struct() {
     ))
     .expect("valid schema");
 
-    let tokens = expand_schema(schema, None, &facade());
+    let tokens = expand_schema(schema, &facade());
     let code = tokens.to_string();
 
     // Attribute must appear before the top-level struct.
@@ -175,7 +139,7 @@ fn expand_schema_cascades_attributes_to_generated_sub_structs() {
     ))
     .expect("valid schema");
 
-    let tokens = expand_schema(schema, None, &facade());
+    let tokens = expand_schema(schema, &facade());
     let code = tokens.to_string();
 
     // The generated sub-struct is named TestThemeSurface (root + PascalCase path).
@@ -199,7 +163,7 @@ fn expand_schema_without_attributes_produces_no_user_derives() {
     ))
     .expect("valid schema");
 
-    let tokens = expand_schema(schema, None, &facade());
+    let tokens = expand_schema(schema, &facade());
     let code = tokens.to_string();
 
     // No user derive should appear anywhere (only internal allow/doc attributes).
@@ -268,7 +232,7 @@ fn expand_schema_reports_unknown_state_components() {
     ))
     .expect("schema parses");
 
-    let code = expand_schema(schema, None, &facade()).to_string();
+    let code = expand_schema(schema, &facade()).to_string();
 
     assert!(code.contains("compile_error"));
     assert!(code.contains("unknown state component `ButtonTokens`"));

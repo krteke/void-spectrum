@@ -4,10 +4,9 @@
 
 | 依赖 | 用途 | 决策 |
 | --- | --- | --- |
-| `serde` | Schema 与可选的 core 序列化 | 引入 |
-| `serde_json` | JSON 主题配置 | 可选 feature |
-| `toml` | TOML 主题配置 | 可选 feature |
-| `thiserror` | 稳定的 resolver 错误分类和来源追溯 | 引入 |
+| `serde` | 可选的 core 序列化 | 引入 |
+| `toml` | contract-aware TOML source 加载 | 可选 feature |
+| `thiserror` | 稳定的错误分类和来源追溯 | 引入 |
 | `proc-macro2` | 过程宏 token 模型 | 引入到 macro crate |
 | `quote` | 过程宏输出 | 引入到 macro crate |
 | `syn` | 过程宏输入解析 | 引入到 macro crate |

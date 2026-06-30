@@ -8,11 +8,9 @@ Void Spectrum 是一个用 Rust 编写的类型化主题令牌引擎工作区。
 
 | Crate | 职责 |
 | --- | --- |
-| `spectrum-core` | 平台无关的值类型和已解析的主题类型 |
-| `spectrum-schema` | 可序列化的主题规范与配置格式 |
+| `spectrum-core` | 平台无关的主题值类型 |
 | `spectrum-palette` | 种子颜色与色调调色板生成的边界 |
-| `spectrum-resolver` | 合并、引用解析、校验与错误报告 |
-| `spectrum-codegen` | 编译期类型化令牌代码生成 |
+| `spectrum-codegen` | 编译期类型化令牌契约代码生成 |
 | `spectrum-macros` | 内联类型化令牌契约生成 |
 | `spectrum-ratatui` | Ratatui 适配器 trait 与终端可视化示例 |
 | `spectrum-iced` | Iced 适配器 trait 与 GUI 可视化示例 |
@@ -25,18 +23,17 @@ Void Spectrum 是一个用 Rust 编写的类型化主题令牌引擎工作区。
 | Feature | 启用 |
 | --- | --- |
 | `macros` | `define_theme_tokens!` |
-| `toml` | TOML schema 加载支持 |
-| `json` | JSON schema 加载支持 |
+| `toml` | contract-aware TOML source 加载 |
 | `ratatui` | `spectrum_theme::ratatui` 适配器重导出 |
 | `iced` | `spectrum_theme::iced` 适配器重导出 |
 
 ## 类型化主题生成
 
-`define_theme_tokens!` 定义类型化契约，可以从运行时加载的主题中填充数据。对于静态 TOML 主题，在 `build.rs` 中生成 Rust 代码，这样 rust-analyzer 可以通过 Cargo 的构建脚本输出检查生成的结构体和字段：
+`define_theme_tokens!` 定义类型化契约，可以从任意 `TokenSource` 中填充数据。对于静态 TOML 主题，将契约和取值文件分开维护，并在 `build.rs` 中生成 Rust 代码：
 
 ```rust
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    spectrum_codegen::ThemeCodegen::new("themes/app.toml", "AppTheme")
+    spectrum_codegen::ThemeCodegen::from_contract("theme.tokens", "theme.toml")
         .generate()?;
     Ok(())
 }

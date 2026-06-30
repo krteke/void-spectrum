@@ -4,10 +4,6 @@
 
 use core::convert::Infallible;
 
-#[cfg(feature = "seed")]
-use spectrum_resolver::resolve_theme;
-#[cfg(feature = "seed")]
-use spectrum_schema::ThemeSpec;
 #[cfg(feature = "toml")]
 use spectrum_theme::config::TomlThemeSource;
 use spectrum_theme::{
@@ -17,8 +13,19 @@ use spectrum_theme::{
 };
 
 #[cfg(feature = "toml")]
+/// Test-only custom duration token.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Delay(u16);
+pub struct Delay(u16);
+
+#[cfg(feature = "toml")]
+/// Test-only custom easing token.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Easing {
+    /// Linear interpolation.
+    Linear,
+    /// Ease-out interpolation.
+    EaseOut,
+}
 
 define_theme_tokens! {
     pub struct AppTheme {
@@ -73,8 +80,21 @@ define_theme_tokens! {
 #[cfg(feature = "toml")]
 define_theme_tokens! {
     struct CustomConfigTheme {
+        component MotionTokens {
+            delay: Delay,
+            easing: Easing,
+        }
+
         motion {
             delay: Delay,
+            easing: Easing,
+        }
+
+        transition: MotionTokens,
+
+        states transition_state: MotionTokens {
+            normal,
+            hover extends normal,
         }
     }
 }
@@ -159,7 +179,6 @@ define_theme_tokens! {
     }
 }
 
-include!(concat!(env!("OUT_DIR"), "/theme_tokens.rs"));
 #[cfg(feature = "toml")]
 include!(concat!(env!("OUT_DIR"), "/contract_theme_tokens.rs"));
 
@@ -291,26 +310,63 @@ impl ThemeValue<TomlThemeSource> for Delay {
     }
 }
 
+#[cfg(feature = "toml")]
+impl ThemeValue<TomlThemeSource> for Easing {
+    fn read(source: &TomlThemeSource, path: &str) -> Result<Self, ThemeBuildError> {
+        match source.token_text(path)?.as_str() {
+            "linear" => Ok(Self::Linear),
+            "ease-out" => Ok(Self::EaseOut),
+            value => Err(ThemeBuildError::InvalidTokenValue {
+                path: path.to_owned(),
+                message: format!("unknown easing '{value}'"),
+            }),
+        }
+    }
+}
+
+struct MissingSource;
+
+impl TokenSource for MissingSource {
+    type Error = ThemeBuildError;
+
+    fn is_missing(error: &Self::Error) -> bool {
+        matches!(error, ThemeBuildError::MissingToken { .. })
+    }
+}
+
+macro_rules! impl_missing_value {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl ThemeValue<MissingSource> for $ty {
+                fn read(_: &MissingSource, path: &str) -> Result<Self, ThemeBuildError> {
+                    Err(ThemeBuildError::MissingToken {
+                        path: path.to_owned(),
+                    })
+                }
+            }
+        )*
+    };
+}
+
+impl_missing_value!(
+    Color,
+    FontStyle,
+    FontWeight,
+    Length,
+    LineHeight,
+    Radius,
+    ShadowLayer,
+);
+
 #[test]
 fn builds_from_a_custom_token_source() {
     let theme = AppTheme::try_from_source(&StaticSource).expect("typed theme");
-    let file_theme = FileTheme::try_from_source(&StaticSource).expect("file theme");
     assert_eq!(theme.editor.cursor, Color::new(1, 2, 3));
     assert_eq!(theme.spacing.medium.to_string(), "9px");
     assert_eq!(theme.radius.card.to_string(), "7px");
     assert_eq!(theme.font.body.value(), 700);
     assert_eq!(theme.font.style, FontStyle::Oblique);
     assert_eq!(theme.line_height.body.to_string(), "1.25");
-    assert_eq!(file_theme.editor.selection.background, Color::new(1, 2, 3));
-    assert_eq!(file_theme.spacing.medium.to_string(), "9px");
-    assert_eq!(file_theme.radius.card.to_string(), "7px");
-    assert_eq!(file_theme.font.body.value(), 700);
-    assert_eq!(file_theme.editor.font_weight.value(), 700);
-    assert_eq!(file_theme.font.style, FontStyle::Oblique);
-    assert_eq!(file_theme.editor.font_style, FontStyle::Oblique);
-    assert_eq!(file_theme.line_height.body.to_string(), "1.25");
-    assert_eq!(file_theme.editor.line_height.to_string(), "1.25");
-    assert_eq!(file_theme.shadow.card.blur().to_string(), "6px");
     let shadow_theme = ShadowTheme::try_from_source(&StaticSource).expect("shadow theme");
     assert_eq!(shadow_theme.shadow.card.blur().to_string(), "6px");
 
@@ -374,59 +430,42 @@ fn no_attributes_still_compiles() {
     assert_eq!(theme.editor.cursor, Color::new(1, 2, 3));
 }
 
-#[cfg(feature = "seed")]
+#[cfg(all(feature = "toml", feature = "seed"))]
 #[test]
-fn builds_material_bindings_from_resolved_themes() {
-    let resolved = resolve_theme(
-        &ThemeSpec::new("Editor")
-            .with_seed(Color::new(0, 0, 255))
-            .with_color(
-                "editor.cursor",
-                "{material.primary}".parse().expect("Material reference"),
-            )
-            .with_length("spacing.medium", "8px".parse().expect("length"))
-            .with_radius("radius.card", "6px".parse().expect("radius"))
-            .with_font_weight("font.body", "600".parse().expect("weight"))
-            .with_font_style("font.style", "normal".parse().expect("style"))
-            .with_line_height("line_height.body", "1.75".parse().expect("line height")),
-    )
-    .expect("resolved");
-    let mut theme = AppTheme::try_from_source(&resolved).expect("typed theme");
-    theme.reload(&resolved).expect("reload");
+fn builds_material_bindings_from_contract_aware_toml() {
+    let source: TomlThemeSource = r##"
+seed = "#0000ff"
+
+[meta]
+mode = "light"
+
+[editor]
+cursor = "{material.primary}"
+
+[spacing]
+medium = "8px"
+
+[radius]
+card = "6px"
+
+[font]
+body = "600"
+style = "normal"
+
+[line_height]
+body = "1.75"
+"##
+    .parse()
+    .expect("TOML source");
+
+    let mut theme = AppTheme::try_from_source(&source).expect("typed theme");
+    theme.reload(&source).expect("reload");
 
     assert_ne!(theme.editor.cursor, Color::new(0, 0, 255));
     assert_eq!(theme.radius.card.to_string(), "6px");
     assert_eq!(theme.font.body.value(), 600);
     assert_eq!(theme.font.style, FontStyle::Normal);
     assert_eq!(theme.line_height.body.to_string(), "1.75");
-}
-
-#[cfg(feature = "seed")]
-#[test]
-fn file_contract_loads_embedded_values_and_supports_seed_override() {
-    let blue = FileTheme::try_load().expect("embedded theme");
-    let red = FileTheme::try_load_with_seed(Color::new(255, 0, 0)).expect("red theme");
-
-    assert_ne!(blue.editor.cursor, red.editor.cursor);
-    assert_eq!(blue.editor.selection.background, Color::new(16, 32, 48));
-    assert_eq!(blue.shadow.card.blur().to_string(), "8px");
-    assert_eq!(
-        blue.editor.selection.foreground,
-        blue.editor.selection.background
-    );
-    assert_eq!(red.editor.selection.background, Color::new(16, 32, 48));
-    assert_eq!(red.overlay.scrim, Color::new_rgba(16, 32, 48, 128));
-    assert_eq!(blue.spacing.medium.to_string(), "8px");
-    assert_eq!(red.spacing.medium.to_string(), "8px");
-    assert_eq!(blue.editor.gutter_width.to_string(), "3rem");
-    assert_eq!(blue.radius.card.to_string(), "12px");
-    assert_eq!(red.radius.card.to_string(), "12px");
-    assert_eq!(blue.font.body.value(), 450);
-    assert_eq!(red.editor.font_weight.value(), 450);
-    assert_eq!(blue.font.style, FontStyle::Italic);
-    assert_eq!(red.editor.font_style, FontStyle::Italic);
-    assert_eq!(blue.line_height.body.to_string(), "1.5");
-    assert_eq!(red.editor.line_height.to_string(), "20px");
 }
 
 #[cfg(feature = "toml")]
@@ -441,41 +480,8 @@ fn external_contract_file_loads_contract_aware_values() {
     assert_eq!(theme.button.hover.gap.to_string(), "4px");
     assert_eq!(theme.button.press_down.fg, Color::new(4, 5, 6));
     assert_eq!(theme.button.press_down.gap.to_string(), "4px");
-}
-
-#[cfg(feature = "seed")]
-#[test]
-fn updates_all_material_fields_from_one_runtime_seed() {
-    let mut theme = FileTheme::try_load().expect("embedded theme");
-    let original_cursor = theme.editor.cursor;
-    let original_background = theme.editor.background;
-    let fixed_selection = theme.editor.selection.background;
-
-    theme
-        .try_set_seed(Color::new(255, 0, 0))
-        .expect("updated seed");
-
-    assert_ne!(theme.editor.cursor, original_cursor);
-    assert_ne!(theme.editor.background, original_background);
-    assert_eq!(theme.editor.selection.background, fixed_selection);
-}
-
-#[cfg(feature = "seed")]
-#[test]
-fn component_states_inherit_missing_resolved_theme_values() {
-    let resolved = resolve_theme(
-        &ThemeSpec::new("Button")
-            .with_color("button.normal.fg", "#010203".parse().expect("color"))
-            .with_length("button.normal.gap", "4px".parse().expect("length"))
-            .with_color("button.hover.fg", "#040506".parse().expect("color")),
-    )
-    .expect("resolved");
-
-    let theme = ComponentStateTheme::try_from_source(&resolved).expect("typed theme");
-
-    assert_eq!(theme.button.hover.gap.to_string(), "4px");
-    assert_eq!(theme.button.press_down.fg, Color::new(4, 5, 6));
-    assert_eq!(theme.button.press_down.gap.to_string(), "4px");
+    assert_eq!(theme.motion.delay, Delay(90));
+    assert_eq!(theme.motion.easing, Easing::EaseOut);
 }
 
 #[cfg(feature = "toml")]
@@ -531,115 +537,112 @@ gap = "8px"
 #[cfg(feature = "toml")]
 #[test]
 fn custom_values_load_from_contract_aware_toml() {
-    let source: TomlThemeSource = "
+    let source: TomlThemeSource = r#"
 [motion]
 delay = 120
-"
+easing = "linear"
+
+[transition]
+delay = 80
+easing = "ease-out"
+
+[transition_state.normal]
+delay = 100
+easing = "linear"
+
+[transition_state.hover]
+easing = "ease-out"
+"#
     .parse()
     .expect("TOML source");
 
     let theme = CustomConfigTheme::try_from_source(&source).expect("typed theme");
 
     assert_eq!(theme.motion.delay, Delay(120));
+    assert_eq!(theme.motion.easing, Easing::Linear);
+    assert_eq!(theme.transition.delay, Delay(80));
+    assert_eq!(theme.transition.easing, Easing::EaseOut);
+    assert_eq!(theme.transition_state.hover.delay, Delay(100));
+    assert_eq!(theme.transition_state.hover.easing, Easing::EaseOut);
 }
 
-#[cfg(feature = "seed")]
 #[test]
 fn typed_build_reports_missing_line_height_tokens() {
-    let resolved = resolve_theme(&ThemeSpec::new("Empty")).expect("resolved");
-
     assert!(matches!(
-        LineHeightTheme::try_from_source(&resolved),
+        LineHeightTheme::try_from_source(&MissingSource),
         Err(ThemeBuildError::MissingToken { path }) if path == "line_height.body"
     ));
 }
 
-#[cfg(feature = "seed")]
 #[test]
 fn typed_build_reports_missing_shadow_tokens() {
-    let resolved = resolve_theme(&ThemeSpec::new("Empty")).expect("resolved");
-
     assert!(matches!(
-        ShadowTheme::try_from_source(&resolved),
+        ShadowTheme::try_from_source(&MissingSource),
         Err(ThemeBuildError::MissingToken { path }) if path == "shadow.card"
     ));
 }
 
-#[cfg(feature = "seed")]
 #[test]
 fn typed_build_reports_missing_font_style_tokens() {
-    let resolved = resolve_theme(&ThemeSpec::new("Empty")).expect("resolved");
-
     assert!(matches!(
-        FontStyleTheme::try_from_source(&resolved),
+        FontStyleTheme::try_from_source(&MissingSource),
         Err(ThemeBuildError::MissingToken { path }) if path == "font.style"
     ));
 }
 
-#[cfg(feature = "seed")]
 #[test]
 fn typed_build_reports_missing_font_weight_tokens() {
-    let resolved = resolve_theme(&ThemeSpec::new("Empty")).expect("resolved");
-
     assert!(matches!(
-        FontWeightTheme::try_from_source(&resolved),
+        FontWeightTheme::try_from_source(&MissingSource),
         Err(ThemeBuildError::MissingToken { path }) if path == "font.body"
     ));
 }
 
-#[cfg(feature = "seed")]
 #[test]
 fn typed_build_reports_missing_radius_tokens() {
-    let resolved = resolve_theme(&ThemeSpec::new("Empty")).expect("resolved");
-
     assert!(matches!(
-        RadiusTheme::try_from_source(&resolved),
+        RadiusTheme::try_from_source(&MissingSource),
         Err(ThemeBuildError::MissingToken { path }) if path == "radius.card"
     ));
 }
 
-#[cfg(feature = "seed")]
 #[test]
 fn typed_build_reports_missing_length_tokens() {
-    let resolved = resolve_theme(&ThemeSpec::new("Empty")).expect("resolved");
-
     assert!(matches!(
-        LengthTheme::try_from_source(&resolved),
+        LengthTheme::try_from_source(&MissingSource),
         Err(ThemeBuildError::MissingToken { path }) if path == "spacing.medium"
     ));
 }
 
-#[cfg(feature = "seed")]
 #[test]
 fn typed_build_reports_missing_contract_tokens() {
-    let resolved = resolve_theme(&ThemeSpec::new("Empty")).expect("resolved");
-
     assert!(matches!(
-        AppTheme::try_from_source(&resolved),
+        AppTheme::try_from_source(&MissingSource),
         Err(ThemeBuildError::MissingToken { path }) if path == "editor.cursor"
     ));
 }
 
-#[cfg(feature = "seed")]
+#[cfg(all(feature = "toml", feature = "seed"))]
 #[test]
 fn typed_build_requires_seed_for_material_bindings() {
-    let resolved = resolve_theme(&ThemeSpec::new("Editor").with_color(
-        "editor.cursor",
-        "{material.primary}".parse().expect("Material reference"),
-    ))
-    .expect("resolved");
+    let source: TomlThemeSource = r#"
+[editor]
+cursor = "{material.primary}"
+"#
+    .parse()
+    .expect("TOML source");
 
     assert!(matches!(
-        AppTheme::try_from_source(&resolved),
+        AppTheme::try_from_source(&source),
         Err(ThemeBuildError::MissingSeed { path }) if path == "editor.cursor"
     ));
 }
 
-#[cfg(not(feature = "seed"))]
+#[cfg(all(feature = "toml", not(feature = "seed")))]
 #[test]
-fn embedded_material_bindings_report_the_missing_feature() {
+fn material_bindings_report_the_missing_seed_feature() {
     assert!(matches!(
-        FileTheme::try_load(),
-        Err(ThemeBuildError::SeedFeatureDisabled { path }) if path == "editor.background"
+        ContractFileTheme::try_load(),
+        Err(ThemeBuildError::SeedFeatureDisabled { path }) if path == "button.normal.fg"
     ));
 }

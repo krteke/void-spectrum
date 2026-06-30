@@ -34,12 +34,12 @@ define_theme_tokens! {
 
 | | `define_theme_tokens!` | `build.rs` + `ThemeCodegen` |
 |---|---|---|
-| Token structure source | Hand-written DSL | External contract DSL, or legacy TOML inference |
+| Token structure source | Hand-written DSL | External contract DSL |
 | Theme data | Provided at runtime | Embedded at compile time |
-| Requires external file | No | Yes (contract + TOML, or legacy TOML) |
+| Requires external file | No | Yes (contract + TOML) |
 | IDE completion | ✅ via macro expansion | ✅ via `include!` of real file |
 | Material colors | ✅ with manual seed | ✅ declared in TOML |
-| `try_load` / `try_set_seed` | ❌ | `try_load` always; seed setters on legacy embedded themes |
+| `try_load` | ❌ | ✅ |
 
 ---
 
@@ -246,25 +246,6 @@ impl ThemeValue<MySource> for ShadowLayer {
 let theme = FullTheme::try_from_source(&MySource).unwrap();
 ```
 
-### Legacy: Using ResolvedTheme
-
-`ResolvedTheme` is the output of the fixed `ThemeSpec` resolver and already
-supports the built-in theme value types. This path is useful for legacy flat
-TOML and resolver tests; its schema is fixed, so it cannot carry user-defined
-token types. Prefer the contract-aware source in the next section for new code:
-
-```rust
-use spectrum_schema::ThemeSpec;
-use spectrum_resolver::resolve_theme;
-
-// Runtime: parse TOML, resolve references, derive Material colors
-let spec: ThemeSpec = toml::from_str(&fs::read_to_string("theme.toml")?).unwrap();
-let resolved = resolve_theme(&spec).unwrap();
-
-// Pass directly—ResolvedTheme is a TokenSource
-let theme = FullTheme::try_from_source(&resolved).unwrap();
-```
-
 ### Contract-Aware TOML Source
 
 With the `toml` feature, a generated contract can read TOML tables directly.
@@ -318,10 +299,10 @@ scalar text through `source.token_text(path)`.
 
 ```rust
 // Load theme A
-let mut theme = FullTheme::try_from_source(&resolved_a).unwrap();
+let mut theme = FullTheme::try_from_source(&source_a).unwrap();
 
 // Switch to theme B in-place—no reallocation
-theme.reload(&resolved_b).unwrap();
+theme.reload(&source_b).unwrap();
 ```
 
 ---
@@ -391,7 +372,7 @@ include!(concat!(env!("OUT_DIR"), "/theme_tokens.rs"));
 
 fn main() {
     let theme = AppTheme::try_load().unwrap();
-    let hover = theme.button.hover;
+    let hover = theme.button_state.hover;
 }
 ```
 
@@ -399,129 +380,14 @@ fn main() {
 time. The generated `try_load` uses `TomlThemeSource`, so the consuming crate
 must enable `spectrum-theme`'s `toml` feature.
 
-## Legacy Path: Typed Contract from Flat TOML
-
-### Step 1: Create `theme.toml`
-
-Place it in your project root or `src/`:
-
-```toml
-[meta]
-name = "Dawn"
-mode = "light"
-author = "Alice"
-version = "1.0"
-description = "A warm light theme"
-
-seed = "#6750a4"
-
-# ── Colors (direct, reference, or Material role) ──
-[colors]
-"surface.background" = "#fef7ff"
-"surface.foreground" = "#1d1b20"
-"accent.primary" = "{material.primary}"
-"accent.on_primary" = "{material.on_primary}"
-"status.success" = "#2e7d32"
-"border.default" = "{surface.foreground}"          # reference to another token
-
-# ── Lengths ──
-[lengths]
-"spacing.xs" = "4px"
-"spacing.sm" = "8px"
-"spacing.md" = "16px"
-"editor.line_height" = "1.5"
-
-# ── Radii ──
-[radii]
-"radius.sm" = "4px"
-"radius.md" = "8px"
-"radius.full" = "9999px"
-
-# ── Font weights ──
-[font_weights]
-"font.body" = "400"
-"font.heading" = "700"
-
-# ── Font styles ──
-[font_styles]
-"font.body" = "normal"
-"font.code" = "italic"
-
-# ── Line heights ──
-[line_heights]
-"line_height.body" = "1.5"
-"line_height.heading" = "1.2"
-
-# ── Shadows ──
-[[shadows]]
-path = "shadow.sm"
-color = "#00000026"
-offset_x = "0px"
-offset_y = "1px"
-blur = "2px"
-spread = "0px"
-
-[[shadows]]
-path = "shadow.md"
-color = "#00000033"
-offset_x = "0px"
-offset_y = "4px"
-blur = "8px"
-spread = "0px"
-```
-
-### Step 2: Create `build.rs`
-
-```rust
-// build.rs
-use spectrum_codegen::ThemeCodegen;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ThemeCodegen::new("theme.toml", "AppTheme").generate()?;
-    Ok(())
-}
-```
-
-### Step 3: Configure `Cargo.toml`
-
-```toml
-[build-dependencies]
-spectrum-codegen = "0.1"
-
-[dependencies]
-spectrum-theme = "0.1"
-```
-
-### Step 4: Include in Source
-
-```rust
-// src/main.rs
-use spectrum_theme::Color;
-
-include!(concat!(env!("OUT_DIR"), "/theme_tokens.rs"));
-// ↑ Generated at compile time by build.rs. Fully indexed by rust-analyzer.
-
-fn main() {
-    // Use the embedded defaults
-    let theme = AppTheme::try_load().unwrap();
-
-    // Override the brand color at runtime—Material colors recalculate
-    let red = AppTheme::try_load_with_seed(Color::new(255, 0, 0)).unwrap();
-
-    // In-place brand color override—only Material fields update
-    let mut theme = AppTheme::try_load().unwrap();
-    theme.try_set_seed(Color::new(255, 0, 0)).unwrap();
-}
-```
-
 ### Multiple Theme Files
 
 ```rust
 // build.rs
-ThemeCodegen::new("themes/dark.toml", "DarkTheme")
+ThemeCodegen::from_contract("themes/app.tokens", "themes/dark.toml")
     .output_file("dark_tokens.rs")
     .generate()?;
-ThemeCodegen::new("themes/light.toml", "LightTheme")
+ThemeCodegen::from_contract("themes/app.tokens", "themes/light.toml")
     .output_file("light_tokens.rs")
     .generate()?;
 ```
@@ -544,12 +410,6 @@ ThemeCodegen::from_contract("src/theme.tokens", "src/theme.toml")
     .output_file("theme_tokens.rs")
     .facade_path("::spectrum_theme")
     .generate()?;
-
-ThemeCodegen::new("src/theme.toml", "MyTheme")
-    .visibility("pub(crate)")          // default "pub"
-    .output_file("my_theme_tokens.rs") // default "theme_tokens.rs"
-    .facade_path("::spectrum_theme")   // default, rarely changed
-    .generate()?;
 ```
 
 ---
@@ -563,23 +423,18 @@ Every generated struct has these methods:
 | `try_from_source` | `fn try_from_source<S: TokenSource>(source: &S) -> Result<Self, S::Error>` | Always |
 | `reload` | `fn reload<S: TokenSource>(&mut self, source: &S) -> Result<(), S::Error>` | Always |
 | `try_load` | `fn try_load() -> Result<Self, ThemeBuildError>` | build.rs path |
-| `try_load_with_seed` | `fn try_load_with_seed(seed: Color) -> Result<Self, ThemeBuildError>` | legacy build.rs path |
-| `try_set_seed` | `fn try_set_seed(&mut self, seed: Color) -> Result<(), ThemeBuildError>` | legacy build.rs path |
 
 `try_from_source` and `reload` also require every token value type in the
 contract to implement `ThemeValue<S>` for the provided source.
 
 ```rust
 // ─── Inline DSL path (no embedded data) ───
-let mut theme = AppTheme::try_from_source(&resolved).unwrap();
-theme.reload(&new_resolved).unwrap();
+let mut theme = AppTheme::try_from_source(&source).unwrap();
+theme.reload(&new_source).unwrap();
 
 // ─── build.rs path (has embedded data) ───
-let theme = AppTheme::try_load().unwrap();                                // embedded defaults
-let red = AppTheme::try_load_with_seed(Color::new(255,0,0)).unwrap();     // new brand color
-let mut theme = AppTheme::try_load().unwrap();
-theme.try_set_seed(Color::new(255,0,0)).unwrap();                         // in-place brand color update
-theme.reload(&other_resolved).unwrap();                                    // full theme swap
+let mut theme = AppTheme::try_load().unwrap();                             // embedded defaults
+theme.reload(&other_source).unwrap();                                       // full theme swap
 ```
 
 ---
@@ -605,40 +460,42 @@ seed = "#6750a4"       # RGB
 seed = "#6750a480"     # RGBA
 ```
 
-### `[colors]` — Color Tokens
+### Contract Token Tables
 
-Values can be:
+Token paths come from the generated contract. Nested contract fields map to
+TOML tables, and the final field name is the scalar key:
 
 ```toml
-# Direct color
-"surface.bg" = "#1e1e2e"
+[surface]
+bg = "#1e1e2e"
 
-# Reference to another token in the same file
-"border.focus" = "{accent.primary}"
+[accent]
+primary = "{material.primary}"
 
-# Material role
-"accent.primary" = "{material.primary}"
+[border]
+focus = "{accent.primary}"
 ```
 
-State-set tokens use the same flat paths as the generated contract:
+Component instances and state sets use the same rule:
 
 ```toml
-[colors]
-"button.normal.fg" = "#ffffff"
-"button.normal.bg" = "{material.primary}"
-"button.normal.border" = "{material.outline}"
-"button.hover.bg" = "{material.primary_container}"
-"button.hover.border" = "{material.primary}"
-"button.press_down.bg" = "#4f378b"
-"button.focus.border" = "{material.primary}"
+[button]
+fg = "#ffffff"
+bg = "{material.primary}"
+radius = "8px"
 
-[radii]
-"button.normal.radius" = "8px"
+[nav_button.normal]
+fg = "#ffffff"
+bg = "{material.primary}"
+radius = "8px"
+
+[nav_button.hover]
+bg = "{material.primary_container}"
 ```
 
 Missing state fields inherit through the generated `extends` chain, so the
-example above reads `hover.fg`, `press_down.fg`, and all state radii from
-`button.normal`.
+example above reads `nav_button.hover.fg` and `nav_button.hover.radius` from
+`nav_button.normal`.
 
 ### Material Color Roles
 
@@ -694,58 +551,30 @@ example above reads `hover.fg`, `press_down.fg`, and all state radii from
 | `material.error_container` | Error container |
 | `material.on_error_container` | Content on error container |
 
-### `[lengths]` — Length Tokens
+### Scalar Values
 
-Supports `px`, `rem`, `em`:
+Built-in values are parsed from scalar strings according to the contract field
+type. Custom values can implement `ThemeValue<TomlThemeSource>` and parse the
+raw `source.token_text(path)` string.
 
 ```toml
-[lengths]
-"spacing.sm" = "4px"
-"spacing.lg" = "2rem"
-"editor.gutter" = "3em"
+[spacing]
+sm = "4px"
+lg = "2rem"
+
+[font]
+body = "400"
+style = "italic"
+
+[line_height]
+body = "1.5"
+code = "20px"
 ```
 
-### `[radii]` — Radius Tokens
+### Shadow Tokens
 
 ```toml
-[radii]
-"radius.sm" = "4px"
-"radius.full" = "9999px"
-```
-
-### `[font_weights]` — Font Weight Tokens
-
-```toml
-[font_weights]
-"font.body" = "400"
-"font.bold" = "700"
-```
-
-### `[font_styles]` — Font Style Tokens
-
-Supports `"normal"`, `"italic"`, `"oblique"`:
-
-```toml
-[font_styles]
-"font.body" = "normal"
-"font.code" = "italic"
-```
-
-### `[line_heights]` — Line Height Tokens
-
-Supports bare numbers (unitless), `px`, `rem`:
-
-```toml
-[line_heights]
-"line_height.body" = "1.5"
-"line_height.code" = "20px"
-```
-
-### `[[shadows]]` — Shadow Tokens
-
-```toml
-[[shadows]]
-path = "shadow.card"
+[shadow.card]
 color = "#00000033"
 offset_x = "0px"
 offset_y = "4px"
@@ -799,7 +628,7 @@ assert_eq!(theme.spacing.pad.0, 12);
 
 ```toml
 [dependencies]
-spectrum-theme = { version = "0.1", features = ["macros", "seed", "serde"] }
+spectrum-theme = { version = "0.1", features = ["macros", "toml", "seed"] }
 ```
 
 | Feature | Purpose |
@@ -807,6 +636,6 @@ spectrum-theme = { version = "0.1", features = ["macros", "seed", "serde"] }
 | `macros` | Enables the `define_theme_tokens!` macro |
 | `seed` | Enables Material color derivation (`material.primary`, etc.) |
 | `serde` | Enables serde serialization for core types |
-| `json` | Enables JSON-format theme file loading (schema layer) |
-| `toml` | Enables TOML-format theme file loading (schema layer) |
-| `export` | Enables export infrastructure (CSS, Design Tokens JSON, etc.) |
+| `toml` | Enables contract-aware TOML source loading |
+| `ratatui` | Enables the Ratatui adapter re-export |
+| `iced` | Enables the iced adapter re-export |

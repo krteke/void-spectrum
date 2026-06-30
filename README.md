@@ -8,11 +8,9 @@ Void Spectrum is a workspace for a typed theme-token engine written in Rust.
 
 | Crate | Responsibility |
 | --- | --- |
-| `spectrum-core` | Platform-independent values and resolved theme types |
-| `spectrum-schema` | Serializable theme specification and configuration formats |
+| `spectrum-core` | Platform-independent theme value types |
 | `spectrum-palette` | Seed-color and tonal-palette generation boundary |
-| `spectrum-resolver` | Merge, reference resolution, validation, and error reporting |
-| `spectrum-codegen` | Build-time typed token code generation |
+| `spectrum-codegen` | Build-time typed token contract code generation |
 | `spectrum-macros` | Inline typed token contract generation |
 | `spectrum-ratatui` | Ratatui adapter traits and a visual terminal example |
 | `spectrum-iced` | Iced adapter traits and a visual GUI example |
@@ -26,21 +24,19 @@ Optional features expose focused APIs:
 | Feature | Enables |
 | --- | --- |
 | `macros` | `define_theme_tokens!` |
-| `toml` | TOML schema loading support |
-| `json` | JSON schema loading support |
+| `toml` | Contract-aware TOML source loading |
 | `ratatui` | `spectrum_theme::ratatui` adapter re-export |
 | `iced` | `spectrum_theme::iced` adapter re-export |
 
 ## Typed Theme Generation
 
-`define_theme_tokens!` defines a typed contract that can be populated from a
-theme loaded at runtime. For static TOML themes, generate Rust code in
-`build.rs` so rust-analyzer can inspect the emitted structs and fields through
-Cargo's build-script output:
+`define_theme_tokens!` defines a typed contract that can be populated from any
+`TokenSource`. For static TOML themes, keep the contract and values in separate
+files and generate Rust code in `build.rs`:
 
 ```rust
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    spectrum_codegen::ThemeCodegen::new("themes/app.toml", "AppTheme")
+    spectrum_codegen::ThemeCodegen::from_contract("theme.tokens", "theme.toml")
         .generate()?;
     Ok(())
 }

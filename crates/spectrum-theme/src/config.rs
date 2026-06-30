@@ -3,9 +3,11 @@
 use core::str::FromStr;
 use std::collections::BTreeSet;
 
+use spectrum_palette::MaterialColor;
+
 use crate::{
-    __private::{MaterialColor, ThemeMode, material_colors},
     Color, FontStyle, FontWeight, Length, LineHeight, Radius, ShadowLayer, ThemeBuildError,
+    ThemeMode,
     source::{ThemeValue, TokenSource},
 };
 
@@ -196,10 +198,21 @@ fn read_color(
     if let Some(role) = reference.strip_prefix("material.") {
         let role = MaterialColor::from_name(role)
             .ok_or_else(|| invalid(path, format!("unknown Material role '{role}'")))?;
-        let source_seed = source.seed.ok_or_else(|| ThemeBuildError::MissingSeed {
-            path: path.to_owned(),
-        })?;
-        return Ok(material_colors(source_seed, source.mode, path)?.resolve(role));
+        #[cfg(not(feature = "seed"))]
+        {
+            let _ = source;
+            let _ = role;
+            return Err(ThemeBuildError::SeedFeatureDisabled {
+                path: path.to_owned(),
+            });
+        }
+        #[cfg(feature = "seed")]
+        {
+            let source_seed = source.seed.ok_or_else(|| ThemeBuildError::MissingSeed {
+                path: path.to_owned(),
+            })?;
+            return Ok(spectrum_palette::material_colors(source_seed, source.mode).resolve(role));
+        }
     }
     read_color(source, reference, seen)
 }

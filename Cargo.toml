@@ -6,8 +6,6 @@ members = [
     "crates/spectrum-macros",
     "crates/spectrum-palette",
     "crates/spectrum-ratatui",
-    "crates/spectrum-resolver",
-    "crates/spectrum-schema",
     "crates/spectrum-theme",
 ]
 default-members = ["crates/spectrum-theme"]
@@ -33,7 +31,6 @@ proc-macro-crate = "3.5.0"
 quote = "1.0.45"
 ratatui = { version = "0.30.1", default-features = false }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
 syn = { version = "2.0.117", features = ["full"] }
 thiserror = "2.0.18"
 toml = "1.1.2"
@@ -44,8 +41,6 @@ spectrum-iced = { version = "0.1.1", path = "crates/spectrum-iced" }
 spectrum-macros = { package = "void-spectrum-macros", version = "0.1.1", path = "crates/spectrum-macros" }
 spectrum-palette = { version = "0.1.1", path = "crates/spectrum-palette" }
 spectrum-ratatui = { version = "0.1.1", path = "crates/spectrum-ratatui" }
-spectrum-resolver = { version = "0.1.1", path = "crates/spectrum-resolver" }
-spectrum-schema = { version = "0.1.1", path = "crates/spectrum-schema" }
 
 [workspace.lints.rust]
 missing_docs = "warn"

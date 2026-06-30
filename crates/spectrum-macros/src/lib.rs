@@ -98,7 +98,7 @@ use syn::{Ident, parse_macro_input};
 #[proc_macro]
 pub fn define_theme_tokens(input: TokenStream) -> TokenStream {
     let schema = parse_macro_input!(input as ThemeSchema);
-    expand_schema(schema, None, &facade_path()).into()
+    expand_schema(schema, &facade_path()).into()
 }
 
 fn facade_path() -> TokenStream2 {

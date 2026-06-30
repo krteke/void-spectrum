@@ -6,16 +6,13 @@
 spectrum-core
     ^
     |
-spectrum-schema     spectrum-palette
-    ^                    ^
-    |                    |
-    +--- spectrum-resolver
-              ^
-              |
-        spectrum-codegen
-              |
-              v
-        build.rs output ---> spectrum-theme
+spectrum-palette
+    ^
+    |
+spectrum-codegen
+    |
+    v
+build.rs output ---> spectrum-theme
 
 spectrum-codegen <- spectrum-macros -------------------> spectrum-theme
 spectrum-core <- spectrum-ratatui <- spectrum-theme
@@ -30,15 +27,8 @@ frameworks.
 
 ### `spectrum-core`
 
-Owns platform-independent value types and the fully resolved, strongly typed
-theme representation. It may expose optional serialization support, but it
-must not parse theme files.
-
-### `spectrum-schema`
-
-Owns partial configuration structures, token references, theme metadata, and
-format-specific loading features. Schema values may be incomplete because the
-resolver supplies defaults and derived values.
+Owns platform-independent value types. It may expose optional serialization
+support, but it must not parse theme files.
 
 ### `spectrum-palette`
 
@@ -46,17 +36,13 @@ Owns the Seed Color to tonal palette boundary. The `seed` feature uses
 `material-colors` to produce Material-style roles while keeping the algorithm
 dependency outside `spectrum-core`.
 
-### `spectrum-resolver`
-
-Owns precedence, merging, reference expansion, cycle detection, type checking,
-and contract validation. Its output is a complete `spectrum-core` theme.
-
 ### `spectrum-codegen`
 
 Owns build-time Rust source generation for typed token contracts. It parses and
-resolves static theme files in build scripts and emits ordinary Rust source that
-consuming crates include from `OUT_DIR`, keeping IDE diagnostics and completion
-aware of generated token fields.
+validates external contract files plus contract-aware TOML values in build
+scripts and emits ordinary Rust source that consuming crates include from
+`OUT_DIR`, keeping IDE diagnostics and completion aware of generated token
+fields.
 
 Inline contracts can also define reusable component structs and state sets. A
 component such as `ButtonTokens` is generated once, while a state set such as
@@ -66,9 +52,8 @@ Rust contract without forcing every state path to become a distinct nested
 struct type. Declared `extends` relationships also drive generated source
 lookup fallback for missing state fields.
 
-The resolver still stores resolved values as flat token paths. Codegen maps
-those paths into reusable Rust structs and applies state fallback while building
-the typed theme; it does not require platform adapters or the resolver to know
+Codegen maps contract paths into reusable Rust structs and applies state
+fallback while building the typed theme; platform adapters do not need to know
 about buttons, focus states, or animation semantics.
 
 ### `spectrum-macros`

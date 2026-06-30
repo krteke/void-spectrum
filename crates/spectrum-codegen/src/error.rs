@@ -1,7 +1,5 @@
 use std::{env, path::PathBuf};
 
-use spectrum_resolver::ResolveError;
-
 /// Errors produced by build-time theme code generation.
 #[derive(Debug, thiserror::Error)]
 pub enum CodegenError {
@@ -21,21 +19,13 @@ pub enum CodegenError {
         /// I/O failure.
         source: std::io::Error,
     },
-    /// The theme file is not valid TOML for the supported schema.
+    /// The values file is not valid contract-aware TOML.
     #[error("failed to parse theme source '{}': {source}", path.display())]
     ParseToml {
         /// Source file path.
         path: PathBuf,
         /// TOML parse failure.
         source: toml::de::Error,
-    },
-    /// The theme file could not be resolved into concrete token values.
-    #[error("failed to resolve theme source '{}': {source}", path.display())]
-    Resolve {
-        /// Source file path.
-        path: PathBuf,
-        /// Resolver failure.
-        source: ResolveError,
     },
     /// The generated Rust contract contains an invalid Rust identifier or type.
     #[error("invalid generated Rust contract: {0}")]

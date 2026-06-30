@@ -7,6 +7,10 @@ mode = "light"
 fg = "#010203"
 gap = "2px"
 
+[motion]
+delay = 90
+easing = "ease-out"
+
 [button.normal]
 fg = "{material.primary}"
 gap = "4px"

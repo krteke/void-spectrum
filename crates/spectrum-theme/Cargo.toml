@@ -15,8 +15,7 @@ categories = ["config", "gui"]
 default = ["seed"]
 seed = ["spectrum-palette/seed"]
 serde = ["spectrum-core/serde"]
-json = ["serde", "spectrum-schema/json"]
-toml = ["serde", "spectrum-schema/toml", "dep:toml"]
+toml = ["serde", "dep:toml"]
 macros = ["dep:spectrum-macros"]
 iced = ["dep:spectrum-iced"]
 ratatui = ["dep:spectrum-ratatui"]
@@ -27,8 +26,6 @@ spectrum-iced = { workspace = true, optional = true }
 spectrum-macros = { workspace = true, optional = true }
 spectrum-palette.workspace = true
 spectrum-ratatui = { workspace = true, optional = true }
-spectrum-resolver.workspace = true
-spectrum-schema.workspace = true
 thiserror.workspace = true
 toml = { workspace = true, optional = true }
 

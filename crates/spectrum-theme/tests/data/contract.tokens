@@ -7,6 +7,11 @@ pub struct ContractFileTheme {
 
     file_button: FileButtonTokens,
 
+    motion {
+        delay: Delay,
+        easing: Easing,
+    }
+
     states button: FileButtonTokens {
         normal,
         hover extends normal,
