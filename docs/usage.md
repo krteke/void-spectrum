@@ -460,6 +460,21 @@ seed = "#6750a4"       # RGB
 seed = "#6750a480"     # RGBA
 ```
 
+Runtime code can override the TOML seed without changing token values:
+
+```rust
+let source = TomlThemeSource::parse(include_str!("theme.toml"))?
+    .with_seed(Color::new(0, 0, 255));
+let theme = AppTheme::try_from_source(&source)?;
+```
+
+Themes generated from external contract files also expose seed-specific loaders:
+
+```rust
+let mut theme = AppTheme::try_load_with_seed(Color::new(0, 0, 255))?;
+theme.try_set_seed(Color::new(255, 0, 0))?;
+```
+
 ### Contract Token Tables
 
 Token paths come from the generated contract. Nested contract fields map to

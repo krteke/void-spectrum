@@ -357,6 +357,23 @@ fn embedded_loader(
             #visibility fn try_load() -> Result<Self, #facade::ThemeBuildError> {
                 Self::try_from_source(Self::__embedded_source())
             }
+
+            #[allow(missing_docs)]
+            #visibility fn try_load_with_seed(
+                seed: #facade::Color,
+            ) -> Result<Self, #facade::ThemeBuildError> {
+                let source = Self::__embedded_source().clone().with_seed(seed);
+                Self::try_from_source(&source)
+            }
+
+            #[allow(missing_docs)]
+            #visibility fn try_set_seed(
+                &mut self,
+                seed: #facade::Color,
+            ) -> Result<(), #facade::ThemeBuildError> {
+                let source = Self::__embedded_source().clone().with_seed(seed);
+                self.reload(&source)
+            }
         }
     }
 }

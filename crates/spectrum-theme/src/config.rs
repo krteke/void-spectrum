@@ -45,6 +45,30 @@ impl TomlThemeSource {
         input.parse()
     }
 
+    /// Returns the configured seed color, if any.
+    #[must_use]
+    pub const fn seed(&self) -> Option<Color> {
+        self.seed
+    }
+
+    /// Returns the configured theme mode.
+    #[must_use]
+    pub const fn mode(&self) -> ThemeMode {
+        self.mode
+    }
+
+    /// Returns a copy of this source with `seed` overriding the TOML seed.
+    #[must_use]
+    pub fn with_seed(mut self, seed: Color) -> Self {
+        self.seed = Some(seed);
+        self
+    }
+
+    /// Overrides the seed color used for Material role resolution.
+    pub fn set_seed(&mut self, seed: Color) {
+        self.seed = Some(seed);
+    }
+
     /// Returns a scalar token value as text.
     pub fn token_text(&self, path: &str) -> Result<String, ThemeBuildError> {
         match self.value(path)? {

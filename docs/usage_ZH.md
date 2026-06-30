@@ -450,6 +450,21 @@ seed = "#6750a4"       # RGB
 seed = "#6750a480"     # RGBA
 ```
 
+运行时代码可以覆盖 TOML 中的 seed，而不修改 token 配置：
+
+```rust
+let source = TomlThemeSource::parse(include_str!("theme.toml"))?
+    .with_seed(Color::new(0, 0, 255));
+let theme = AppTheme::try_from_source(&source)?;
+```
+
+从外部 contract 文件生成的主题也会提供 seed 专用加载方法：
+
+```rust
+let mut theme = AppTheme::try_load_with_seed(Color::new(0, 0, 255))?;
+theme.try_set_seed(Color::new(255, 0, 0))?;
+```
+
 ### Contract Token 表
 
 token path 来自生成契约。嵌套字段映射为 TOML 表，最后一级字段名是标量 key：

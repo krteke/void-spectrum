@@ -468,7 +468,7 @@ body = "1.75"
     assert_eq!(theme.line_height.body.to_string(), "1.75");
 }
 
-#[cfg(feature = "toml")]
+#[cfg(all(feature = "toml", feature = "seed"))]
 #[test]
 fn external_contract_file_loads_contract_aware_values() {
     let theme = ContractFileTheme::try_load().expect("contract theme");
@@ -485,6 +485,47 @@ fn external_contract_file_loads_contract_aware_values() {
 }
 
 #[cfg(feature = "toml")]
+#[test]
+fn toml_theme_source_allows_seed_override() {
+    let mut source: TomlThemeSource = r##"
+seed = "#0000ff"
+"##
+    .parse()
+    .expect("TOML source");
+
+    assert_eq!(source.seed(), Some(Color::new(0, 0, 255)));
+    assert_eq!(source.mode(), spectrum_theme::ThemeMode::Dark);
+    source.set_seed(Color::new(255, 0, 0));
+    assert_eq!(source.seed(), Some(Color::new(255, 0, 0)));
+
+    let source = source.with_seed(Color::new(0, 255, 0));
+    assert_eq!(source.seed(), Some(Color::new(0, 255, 0)));
+}
+
+#[cfg(all(feature = "toml", feature = "seed"))]
+#[test]
+fn embedded_contract_theme_can_override_seed() {
+    let default = ContractFileTheme::try_load().expect("default contract theme");
+    let blue = Color::new(0, 0, 255);
+    let red = Color::new(255, 0, 0);
+
+    let mut theme = ContractFileTheme::try_load_with_seed(blue).expect("blue seed theme");
+    assert_eq!(
+        theme.button.normal.fg,
+        spectrum_palette::material_colors(blue, spectrum_theme::ThemeMode::Light).primary
+    );
+    assert_ne!(theme.button.normal.fg, default.button.normal.fg);
+    assert_eq!(theme.button.hover.fg, Color::new(4, 5, 6));
+
+    theme.try_set_seed(red).expect("red seed reload");
+    assert_eq!(
+        theme.button.normal.fg,
+        spectrum_palette::material_colors(red, spectrum_theme::ThemeMode::Light).primary
+    );
+    assert_eq!(theme.button.hover.fg, Color::new(4, 5, 6));
+}
+
+#[cfg(all(feature = "toml", feature = "seed"))]
 #[test]
 fn component_states_load_from_contract_aware_toml() {
     let source: TomlThemeSource = r##"

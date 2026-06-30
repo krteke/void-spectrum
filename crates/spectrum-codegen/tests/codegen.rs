@@ -41,6 +41,8 @@ fn generates_typed_contract_from_external_contract_and_values() {
     assert!(code.contains("ContractFileThemeButtonStates"));
     assert!(code.contains("TomlThemeSource"));
     assert!(code.contains("try_load"));
+    assert!(code.contains("try_load_with_seed"));
+    assert!(code.contains("try_set_seed"));
 }
 
 #[test]
