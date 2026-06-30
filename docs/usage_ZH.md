@@ -108,6 +108,36 @@ define_theme_tokens! {
 }
 ```
 
+也可以把 attribute 放在单个生成项上。它只作用于对应 `component`、普通 group 或
+state container 生成出来的结构体：
+
+```rust
+define_theme_tokens! {
+    pub struct Themed {
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        component MotionTokens {
+            delay: Delay,
+            easing: Easing,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        motion {
+            delay: Delay,
+            easing: Easing,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        states motion_state: MotionTokens {
+            normal,
+            hover extends normal,
+        }
+    }
+}
+```
+
+state item 上的 attribute 只作用于生成的 state container 结构体，不会作用到 state enum。
+叶子值字段暂不接受 attribute。
+
 ### 可复用组件与状态集合
 
 使用 `component` 定义一次组件令牌结构后，可以直接实例化为无状态 token，也可以通过

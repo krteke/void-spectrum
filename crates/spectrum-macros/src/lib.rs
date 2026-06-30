@@ -53,6 +53,36 @@ use syn::{Ident, parse_macro_input};
 /// Multiple `#[derive]` attributes and split attributes (`#[derive(Clone)] #[derive(Debug)]`)
 /// are supported.
 ///
+/// Attributes can also be placed on generated item declarations for a narrower
+/// target. Item-level attributes apply only to the generated struct for that
+/// `component`, group, or state container:
+///
+/// ```ignore
+/// use spectrum_theme::{define_theme_tokens, Color};
+///
+/// define_theme_tokens! {
+///     pub struct MyTheme {
+///         #[derive(Clone, Debug)]
+///         component ButtonTokens {
+///             fg: Color,
+///         }
+///
+///         #[derive(Clone, Debug)]
+///         button {
+///             fg: Color,
+///         }
+///
+///         #[derive(Clone, Debug)]
+///         states nav_button: ButtonTokens {
+///             normal,
+///         }
+///     }
+/// }
+/// ```
+///
+/// State-item attributes apply to the state container struct, not to the
+/// generated state enum.
+///
 /// # Reusable component state sets
 ///
 /// `component` defines one reusable token struct. A contract can instantiate it

@@ -203,6 +203,30 @@ define_theme_tokens! {
     }
 }
 
+define_theme_tokens! {
+    pub struct LocalAttrTheme {
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        component LocalAttrButtonTokens {
+            fg: Px,
+            bg: Px,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        panel {
+            gap: Px,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        states local_button: LocalAttrButtonTokens {
+            normal,
+            hover extends normal,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        states secondary_local_button inherit local_button,
+    }
+}
+
 fn primary(theme: &AppTheme) -> Color {
     theme.color.text.primary
 }
@@ -325,6 +349,23 @@ fn state_set_aliases_copy_state_inheritance() {
 
     assert_eq!(theme.primary_button.hover.fg.0, 7);
     assert_eq!(theme.secondary_button.hover.fg.0, 9);
+}
+
+#[test]
+fn local_item_attributes_apply_to_generated_structs() {
+    let theme = LocalAttrTheme::try_from_source(&PathSource).expect("local attr theme");
+
+    let panel = theme.panel.clone();
+    assert_eq!(panel, theme.panel);
+    let _ = format!("{:?}", theme.panel);
+
+    let button = theme.local_button.normal.clone();
+    assert_eq!(button, theme.local_button.normal);
+    let _ = format!("{:?}", theme.local_button.normal);
+
+    let secondary = theme.secondary_local_button.clone();
+    assert_eq!(secondary, theme.secondary_local_button);
+    let _ = format!("{:?}", theme.secondary_local_button);
 }
 
 #[test]

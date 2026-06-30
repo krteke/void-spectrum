@@ -109,6 +109,37 @@ define_theme_tokens! {
 }
 ```
 
+You can also place attributes on individual generated items. These attributes
+apply only to the generated struct for that `component`, group, or state
+container:
+
+```rust
+define_theme_tokens! {
+    pub struct Themed {
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        component MotionTokens {
+            delay: Delay,
+            easing: Easing,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        motion {
+            delay: Delay,
+            easing: Easing,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        states motion_state: MotionTokens {
+            normal,
+            hover extends normal,
+        }
+    }
+}
+```
+
+State item attributes apply to the generated state container struct, not to the
+state enum. Leaf value fields do not accept attributes.
+
 ### Reusable Components and State Sets
 
 Use `component` once to define a reusable token struct. It can be instantiated

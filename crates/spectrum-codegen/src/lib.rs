@@ -10,6 +10,7 @@ use std::{
 use syn::{
     Attribute, Ident, LitStr, Result as SynResult, Type, Visibility, braced,
     parse::{Parse, ParseStream},
+    spanned::Spanned,
 };
 
 mod error;
@@ -128,14 +129,15 @@ pub struct ThemeSchema(Vec<Attribute>, Visibility, Ident, Vec<Token>);
 #[derive(Clone)]
 enum Token {
     Value(Ident, Box<Type>),
-    Group(Ident, Vec<Token>),
-    Component(Ident, Vec<Token>),
+    Group(Vec<Attribute>, Ident, Vec<Token>),
+    Component(Vec<Attribute>, Ident, Vec<Token>),
     States(StateSet),
     StateAlias(StateAlias),
 }
 
 #[derive(Clone)]
 struct StateSet {
+    attrs: Vec<Attribute>,
     name: Ident,
     component: Ident,
     states: Vec<StateVariant>,
@@ -149,6 +151,7 @@ struct StateVariant {
 
 #[derive(Clone)]
 struct StateAlias {
+    attrs: Vec<Attribute>,
     name: Ident,
     parent: Ident,
 }
@@ -175,12 +178,13 @@ impl Parse for ThemeSchema {
 fn parse_tokens(input: ParseStream<'_>) -> SynResult<Vec<Token>> {
     let mut tokens = Vec::new();
     while !input.is_empty() {
+        let attrs = input.call(Attribute::parse_outer)?;
         if input.peek(keyword::component) {
             input.parse::<keyword::component>()?;
             let name = input.parse()?;
             let content;
             braced!(content in input);
-            tokens.push(Token::Component(name, parse_tokens(&content)?));
+            tokens.push(Token::Component(attrs, name, parse_tokens(&content)?));
             let _ = input.parse::<syn::Token![,]>();
             continue;
         }
@@ -191,7 +195,11 @@ fn parse_tokens(input: ParseStream<'_>) -> SynResult<Vec<Token>> {
             if input.peek(keyword::inherit) {
                 input.parse::<keyword::inherit>()?;
                 let parent = input.parse()?;
-                tokens.push(Token::StateAlias(StateAlias { name, parent }));
+                tokens.push(Token::StateAlias(StateAlias {
+                    attrs,
+                    name,
+                    parent,
+                }));
                 let _ = input.parse::<syn::Token![,]>();
                 continue;
             }
@@ -200,6 +208,7 @@ fn parse_tokens(input: ParseStream<'_>) -> SynResult<Vec<Token>> {
             let content;
             braced!(content in input);
             tokens.push(Token::States(StateSet {
+                attrs,
                 name,
                 component,
                 states: parse_states(&content)?,
@@ -210,12 +219,18 @@ fn parse_tokens(input: ParseStream<'_>) -> SynResult<Vec<Token>> {
 
         let name = input.parse()?;
         if input.peek(syn::Token![:]) {
+            if let Some(attr) = attrs.first() {
+                return Err(syn::Error::new(
+                    attr.path().span(),
+                    "attributes are only supported on groups, components, and state sets",
+                ));
+            }
             input.parse::<syn::Token![:]>()?;
             tokens.push(Token::Value(name, Box::new(input.parse()?)));
         } else {
             let content;
             braced!(content in input);
-            tokens.push(Token::Group(name, parse_tokens(&content)?));
+            tokens.push(Token::Group(attrs, name, parse_tokens(&content)?));
         }
         let _ = input.parse::<syn::Token![,]>();
     }
@@ -401,11 +416,16 @@ fn resolve_state_aliases(tokens: &[Token]) -> SynResult<Vec<Token>> {
     let mut resolved = Vec::new();
     for token in tokens {
         match token {
-            Token::Group(name, children) => {
-                resolved.push(Token::Group(name.clone(), resolve_state_aliases(children)?));
+            Token::Group(attrs, name, children) => {
+                resolved.push(Token::Group(
+                    attrs.clone(),
+                    name.clone(),
+                    resolve_state_aliases(children)?,
+                ));
             }
-            Token::Component(name, children) => {
+            Token::Component(attrs, name, children) => {
                 resolved.push(Token::Component(
+                    attrs.clone(),
                     name.clone(),
                     resolve_state_aliases(children)?,
                 ));
@@ -413,6 +433,9 @@ fn resolve_state_aliases(tokens: &[Token]) -> SynResult<Vec<Token>> {
             Token::StateAlias(alias) => {
                 let mut states = resolve_state_alias(alias, tokens, &mut BTreeSet::new())?;
                 states.name = alias.name.clone();
+                if !alias.attrs.is_empty() {
+                    states.attrs.clone_from(&alias.attrs);
+                }
                 resolved.push(Token::States(states));
             }
             Token::Value(_, _) | Token::States(_) => resolved.push(token.clone()),
@@ -459,7 +482,7 @@ fn validate_schema(tokens: &[Token]) -> SynResult<()> {
 fn collect_component_names(tokens: &[Token], components: &mut BTreeSet<String>) -> SynResult<()> {
     for token in tokens {
         match token {
-            Token::Component(name, children) => {
+            Token::Component(_, name, children) => {
                 if !components.insert(name.to_string()) {
                     return Err(syn::Error::new(
                         name.span(),
@@ -468,7 +491,7 @@ fn collect_component_names(tokens: &[Token], components: &mut BTreeSet<String>) 
                 }
                 collect_component_names(children, components)?;
             }
-            Token::Group(_, children) => collect_component_names(children, components)?,
+            Token::Group(_, _, children) => collect_component_names(children, components)?,
             Token::Value(_, _) | Token::States(_) | Token::StateAlias(_) => {}
         }
     }
@@ -484,7 +507,7 @@ fn validate_state_components(tokens: &[Token], components: &BTreeSet<String>) ->
                     format!("unknown state component `{}`", states.component),
                 ));
             }
-            Token::Group(_, children) | Token::Component(_, children) => {
+            Token::Group(_, _, children) | Token::Component(_, _, children) => {
                 validate_state_components(children, components)?;
             }
             Token::Value(_, _) | Token::States(_) | Token::StateAlias(_) => {}
@@ -502,11 +525,11 @@ fn collect_components(tokens: &[Token]) -> BTreeMap<String, Vec<Token>> {
 fn collect_components_into(tokens: &[Token], components: &mut BTreeMap<String, Vec<Token>>) {
     for token in tokens {
         match token {
-            Token::Component(name, children) => {
+            Token::Component(_, name, children) => {
                 components.insert(name.to_string(), children.clone());
                 collect_components_into(children, components);
             }
-            Token::Group(_, children) => collect_components_into(children, components),
+            Token::Group(_, _, children) => collect_components_into(children, components),
             Token::Value(_, _) | Token::States(_) | Token::StateAlias(_) => {}
         }
     }
@@ -558,7 +581,7 @@ fn expand_tokens(
                     ));
                 }
             }
-            Token::Group(name, tokens) => {
+            Token::Group(attrs, name, tokens) => {
                 path.push(name.clone());
                 let group_name = group_name(root, path);
                 let (group_fields, group_values, group_types) =
@@ -568,6 +591,7 @@ fn expand_tokens(
                     #[doc(hidden)]
                     #[allow(missing_docs)]
                     #(#struct_attrs)*
+                    #(#attrs)*
                     #visibility struct #group_name {
                         #(#group_fields)*
                     }
@@ -576,12 +600,13 @@ fn expand_tokens(
                 values.push(quote!(#name: #group_name { #(#group_values)* },));
                 types.extend(group_types);
             }
-            Token::Component(name, tokens) => {
+            Token::Component(attrs, name, tokens) => {
                 let (component_fields, _, component_types) =
                     expand_tokens(name, visibility, tokens, env, &mut Vec::new(), generated);
                 generated.push(quote! {
                     #[allow(missing_docs)]
                     #(#struct_attrs)*
+                    #(#attrs)*
                     #visibility struct #name {
                         #(#component_fields)*
                     }
@@ -621,6 +646,7 @@ fn expand_states(
     env: &ExpandEnv<'_>,
 ) -> StateExpansion {
     let struct_attrs = env.struct_attrs;
+    let attrs = &states.attrs;
     let state_set_name = format_ident!("{}{}States", root, pascal_case(&states.name));
     let state_enum_name = format_ident!("{}{}State", root, pascal_case(&states.name));
     let component = &states.component;
@@ -683,6 +709,7 @@ fn expand_states(
         generated: quote! {
             #[allow(missing_docs)]
             #(#struct_attrs)*
+            #(#attrs)*
             #visibility struct #state_set_name {
                 #(#state_fields)*
             }
@@ -763,7 +790,7 @@ fn expand_token_values(
                     types.push(ty.as_ref().clone());
                 }
             }
-            Token::Group(name, children) => {
+            Token::Group(_, name, children) => {
                 source_path.push(name.clone());
                 struct_path.push(name.clone());
                 let group = group_name(root, struct_path);
@@ -781,7 +808,7 @@ fn expand_token_values(
                 values.push(quote!(#name: #group { #(#group_values)* },));
                 types.extend(group_types);
             }
-            Token::Component(_, _) | Token::States(_) => {}
+            Token::Component(_, _, _) | Token::States(_) => {}
             Token::StateAlias(_) => unreachable!("state aliases are resolved before expansion"),
         }
     }
@@ -824,12 +851,12 @@ fn expand_reload(
                     ));
                 }
             }
-            Token::Group(name, tokens) => {
+            Token::Group(_, name, tokens) => {
                 path.push(name.clone());
                 assignments.extend(expand_reload(tokens, components, path, facade));
                 path.pop();
             }
-            Token::Component(_, _) => {}
+            Token::Component(_, _, _) => {}
             Token::States(states) => {
                 let component_tokens = components
                     .get(&states.component.to_string())
@@ -905,7 +932,7 @@ fn expand_component_reload(
                     assignments.push(quote!(#self_path.#name = #value;));
                 }
             }
-            Token::Group(name, children) => {
+            Token::Group(_, name, children) => {
                 let nested_self = quote!(#self_path.#name);
                 source_path.push(name.clone());
                 struct_path.push(name.clone());
@@ -921,7 +948,7 @@ fn expand_component_reload(
                 struct_path.pop();
                 source_path.pop();
             }
-            Token::Component(_, _) | Token::States(_) => {}
+            Token::Component(_, _, _) | Token::States(_) => {}
             Token::StateAlias(_) => unreachable!("state aliases are resolved before expansion"),
         }
     }

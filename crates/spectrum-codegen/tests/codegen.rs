@@ -25,6 +25,12 @@ fn parse_schema_error(input: TokenStream) -> String {
     }
 }
 
+fn assert_before(code: &str, needle: &str, target: &str) {
+    let target_pos = code.find(target).expect("target");
+    let needle_pos = code[..target_pos].rfind(needle).expect("needle");
+    assert!(needle_pos < target_pos);
+}
+
 #[test]
 fn generates_typed_contract_from_external_contract_and_values() {
     let code = ThemeCodegen::from_contract(
@@ -69,6 +75,56 @@ fn expand_schema_supports_stateless_component_instances() {
     assert!(code.contains("pub button : ButtonTokens"));
     assert!(code.contains("\"button.fg\""));
     assert!(code.contains("\"toolbar.primary.bg\""));
+}
+
+#[test]
+fn expand_schema_applies_item_attributes_to_generated_structs() {
+    let schema: ThemeSchema = syn::parse2(quote::quote!(
+        pub struct TestTheme {
+            #[derive(ComponentOnly)]
+            component MotionTokens {
+                delay: spectrum_theme::Length,
+            }
+
+            #[derive(GroupOnly)]
+            motion {
+                delay: spectrum_theme::Length,
+            }
+
+            #[derive(StatesOnly)]
+            states primary_button: MotionTokens {
+                normal,
+                hover extends normal,
+            }
+
+            #[derive(AliasOnly)]
+            states secondary_button inherit primary_button,
+        }
+    ))
+    .expect("valid schema");
+
+    let code = expand_schema(schema, &facade()).to_string();
+
+    assert_before(
+        &code,
+        "# [derive (ComponentOnly)]",
+        "pub struct MotionTokens",
+    );
+    assert_before(
+        &code,
+        "# [derive (GroupOnly)]",
+        "pub struct TestThemeMotion",
+    );
+    assert_before(
+        &code,
+        "# [derive (StatesOnly)]",
+        "pub struct TestThemePrimaryButtonStates",
+    );
+    assert_before(
+        &code,
+        "# [derive (AliasOnly)]",
+        "pub struct TestThemeSecondaryButtonStates",
+    );
 }
 
 #[test]
@@ -251,6 +307,18 @@ fn rejects_duplicate_state_names() {
     ));
 
     assert!(error.contains("duplicate state `normal`"));
+}
+
+#[test]
+fn rejects_attributes_on_value_tokens() {
+    let error = parse_schema_error(quote::quote!(
+        pub struct TestTheme {
+            #[derive(Debug)]
+            color: spectrum_theme::Color,
+        }
+    ));
+
+    assert!(error.contains("attributes are only supported"));
 }
 
 #[test]
