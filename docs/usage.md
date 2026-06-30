@@ -136,6 +136,8 @@ define_theme_tokens! {
             press_down extends hover,
             focus extends normal,
         }
+
+        states sidebar_button inherit nav_button,
     }
 }
 ```
@@ -186,6 +188,8 @@ nav_button.normal.fg
 nav_button.hover.fg
 nav_button.press_down.fg
 nav_button.focus.fg
+sidebar_button.normal.fg
+sidebar_button.hover.fg
 ```
 
 `extends` records the state relationship for UI code and controls source lookup
@@ -194,6 +198,13 @@ fallback. If a token is missing from `press_down`, the generated reader tries
 do not fall back. The parent state must be declared in the same state set;
 duplicate state names and inheritance cycles are rejected by the contract
 parser.
+
+`states sidebar_button inherit nav_button` is contract-level structure reuse.
+It is equivalent to declaring another `states sidebar_button: ButtonTokens`
+with the same `normal`, `hover extends normal`, `press_down extends hover`, and
+`focus extends normal` list. Values are still read from
+`sidebar_button.*` paths; the inherited state set does not fall back to
+`nav_button.*` token values.
 
 ### Building an Instance at Runtime
 

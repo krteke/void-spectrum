@@ -131,6 +131,7 @@ enum Token {
     Group(Ident, Vec<Token>),
     Component(Ident, Vec<Token>),
     States(StateSet),
+    StateAlias(StateAlias),
 }
 
 #[derive(Clone)]
@@ -146,10 +147,17 @@ struct StateVariant {
     extends: Option<Ident>,
 }
 
+#[derive(Clone)]
+struct StateAlias {
+    name: Ident,
+    parent: Ident,
+}
+
 mod keyword {
     syn::custom_keyword!(component);
     syn::custom_keyword!(states);
     syn::custom_keyword!(extends);
+    syn::custom_keyword!(inherit);
 }
 
 impl Parse for ThemeSchema {
@@ -180,6 +188,13 @@ fn parse_tokens(input: ParseStream<'_>) -> SynResult<Vec<Token>> {
         if input.peek(keyword::states) {
             input.parse::<keyword::states>()?;
             let name = input.parse()?;
+            if input.peek(keyword::inherit) {
+                input.parse::<keyword::inherit>()?;
+                let parent = input.parse()?;
+                tokens.push(Token::StateAlias(StateAlias { name, parent }));
+                let _ = input.parse::<syn::Token![,]>();
+                continue;
+            }
             input.parse::<syn::Token![:]>()?;
             let component = input.parse()?;
             let content;
@@ -280,6 +295,10 @@ fn expand_schema_inner(
     facade: &TokenStream2,
 ) -> TokenStream2 {
     let ThemeSchema(attrs, visibility, name, tokens) = schema;
+    let tokens = match resolve_state_aliases(&tokens) {
+        Ok(tokens) => tokens,
+        Err(error) => return error.to_compile_error(),
+    };
     if let Err(error) = validate_schema(&tokens) {
         return error.to_compile_error();
     }
@@ -378,6 +397,59 @@ fn embedded_loader(
     }
 }
 
+fn resolve_state_aliases(tokens: &[Token]) -> SynResult<Vec<Token>> {
+    let mut resolved = Vec::new();
+    for token in tokens {
+        match token {
+            Token::Group(name, children) => {
+                resolved.push(Token::Group(name.clone(), resolve_state_aliases(children)?));
+            }
+            Token::Component(name, children) => {
+                resolved.push(Token::Component(
+                    name.clone(),
+                    resolve_state_aliases(children)?,
+                ));
+            }
+            Token::StateAlias(alias) => {
+                let mut states = resolve_state_alias(alias, tokens, &mut BTreeSet::new())?;
+                states.name = alias.name.clone();
+                resolved.push(Token::States(states));
+            }
+            Token::Value(_, _) | Token::States(_) => resolved.push(token.clone()),
+        }
+    }
+    Ok(resolved)
+}
+
+fn resolve_state_alias(
+    alias: &StateAlias,
+    tokens: &[Token],
+    seen: &mut BTreeSet<String>,
+) -> SynResult<StateSet> {
+    if !seen.insert(alias.name.to_string()) {
+        return Err(syn::Error::new(
+            alias.name.span(),
+            format!("state set inheritance cycle involving `{}`", alias.name),
+        ));
+    }
+    match find_state_token(tokens, &alias.parent) {
+        Some(Token::States(states)) => Ok(states.clone()),
+        Some(Token::StateAlias(parent)) => resolve_state_alias(parent, tokens, seen),
+        _ => Err(syn::Error::new(
+            alias.parent.span(),
+            format!("unknown inherited state set `{}`", alias.parent),
+        )),
+    }
+}
+
+fn find_state_token<'a>(tokens: &'a [Token], name: &Ident) -> Option<&'a Token> {
+    tokens.iter().find(|token| match token {
+        Token::States(states) => states.name == *name,
+        Token::StateAlias(alias) => alias.name == *name,
+        _ => false,
+    })
+}
+
 fn validate_schema(tokens: &[Token]) -> SynResult<()> {
     let mut components = BTreeSet::new();
     collect_component_names(tokens, &mut components)?;
@@ -397,7 +469,7 @@ fn collect_component_names(tokens: &[Token], components: &mut BTreeSet<String>) 
                 collect_component_names(children, components)?;
             }
             Token::Group(_, children) => collect_component_names(children, components)?,
-            Token::Value(_, _) | Token::States(_) => {}
+            Token::Value(_, _) | Token::States(_) | Token::StateAlias(_) => {}
         }
     }
     Ok(())
@@ -415,7 +487,7 @@ fn validate_state_components(tokens: &[Token], components: &BTreeSet<String>) ->
             Token::Group(_, children) | Token::Component(_, children) => {
                 validate_state_components(children, components)?;
             }
-            Token::Value(_, _) | Token::States(_) => {}
+            Token::Value(_, _) | Token::States(_) | Token::StateAlias(_) => {}
         }
     }
     Ok(())
@@ -435,7 +507,7 @@ fn collect_components_into(tokens: &[Token], components: &mut BTreeMap<String, V
                 collect_components_into(children, components);
             }
             Token::Group(_, children) => collect_components_into(children, components),
-            Token::Value(_, _) | Token::States(_) => {}
+            Token::Value(_, _) | Token::States(_) | Token::StateAlias(_) => {}
         }
     }
 }
@@ -527,6 +599,7 @@ fn expand_tokens(
                 values.push(expanded.value);
                 types.extend(expanded.types);
             }
+            Token::StateAlias(_) => unreachable!("state aliases are resolved before expansion"),
         }
     }
     (fields, values, types)
@@ -709,6 +782,7 @@ fn expand_token_values(
                 types.extend(group_types);
             }
             Token::Component(_, _) | Token::States(_) => {}
+            Token::StateAlias(_) => unreachable!("state aliases are resolved before expansion"),
         }
     }
     (values, types)
@@ -785,6 +859,7 @@ fn expand_reload(
                     ));
                 }
             }
+            Token::StateAlias(_) => unreachable!("state aliases are resolved before expansion"),
         }
     }
     assignments
@@ -847,6 +922,7 @@ fn expand_component_reload(
                 source_path.pop();
             }
             Token::Component(_, _) | Token::States(_) => {}
+            Token::StateAlias(_) => unreachable!("state aliases are resolved before expansion"),
         }
     }
     assignments

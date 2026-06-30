@@ -134,6 +134,8 @@ define_theme_tokens! {
             press_down extends hover,
             focus extends normal,
         }
+
+        states sidebar_button inherit nav_button,
     }
 }
 ```
@@ -183,11 +185,18 @@ nav_button.normal.fg
 nav_button.hover.fg
 nav_button.press_down.fg
 nav_button.focus.fg
+sidebar_button.normal.fg
+sidebar_button.hover.fg
 ```
 
 `extends` 既记录状态关系，也控制 source 读取时的回退顺序。如果 `press_down` 缺少某个
 字段，生成代码会继续尝试 `hover`，再尝试 `normal`。非缺失类错误会直接返回，不会被
 父状态掩盖。父状态必须声明在同一个状态集合内；重复状态名和循环继承会被契约解析器拒绝。
+
+`states sidebar_button inherit nav_button` 是契约层面的结构复用。它等价于再声明一个
+`states sidebar_button: ButtonTokens`，并复制 `normal`、`hover extends normal`、
+`press_down extends hover`、`focus extends normal` 这组状态定义。值仍然从
+`sidebar_button.*` 路径读取；继承出来的状态集合不会回退读取 `nav_button.*` 的 token 值。
 
 ### 运行时构造实例
 

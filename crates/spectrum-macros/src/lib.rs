@@ -78,6 +78,8 @@ use syn::{Ident, parse_macro_input};
 ///             press_down extends hover,
 ///             focus extends normal,
 ///         }
+///
+///         states secondary_nav_button inherit nav_button,
 ///     }
 /// }
 /// ```
@@ -87,7 +89,9 @@ use syn::{Ident, parse_macro_input};
 /// exposes `get(state)`, and the state enum exposes `parent()` for declared
 /// `extends` relationships. Parent states must be declared in the same state
 /// set; duplicate states and inheritance cycles are rejected while parsing the
-/// contract.
+/// contract. `states secondary_nav_button inherit nav_button` copies the
+/// component type and the complete state list from `nav_button` at contract
+/// generation time; token values still use `secondary_nav_button.*` paths.
 ///
 /// # Constructing from a token source
 ///

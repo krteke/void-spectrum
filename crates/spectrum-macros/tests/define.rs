@@ -95,6 +95,14 @@ impl source::ThemeValue<PathSource> for Px {
             "button.press_down.bg" => 30,
             "button.focus.fg" => 4,
             "button.focus.bg" => 40,
+            "primary_button.normal.fg" => 7,
+            "primary_button.normal.bg" => 70,
+            "primary_button.hover.fg" => 8,
+            "primary_button.hover.bg" => 80,
+            "secondary_button.normal.fg" => 9,
+            "secondary_button.normal.bg" => 90,
+            "secondary_button.hover.fg" => 11,
+            "secondary_button.hover.bg" => 100,
             "plain_button.fg" => 5,
             "plain_button.bg" => 50,
             "toolbar.button.fg" => 6,
@@ -112,6 +120,12 @@ impl source::ThemeValue<InheritedPathSource> for Px {
             "button.hover.bg" => Ok(Px(20)),
             "button.press_down.fg" => Ok(Px(3)),
             "button.focus.fg" => Ok(Px(4)),
+            "primary_button.normal.fg" => Ok(Px(7)),
+            "primary_button.normal.bg" => Ok(Px(70)),
+            "primary_button.hover.bg" => Ok(Px(80)),
+            "secondary_button.normal.fg" => Ok(Px(9)),
+            "secondary_button.normal.bg" => Ok(Px(90)),
+            "secondary_button.hover.bg" => Ok(Px(100)),
             _ => Err(PathError::Missing(path.to_owned())),
         }
     }
@@ -170,6 +184,22 @@ define_theme_tokens! {
         toolbar {
             button: PlainButtonTokens,
         }
+    }
+}
+
+define_theme_tokens! {
+    pub struct StateAliasTheme {
+        component AliasButtonTokens {
+            fg: Px,
+            bg: Px,
+        }
+
+        states primary_button: AliasButtonTokens {
+            normal,
+            hover extends normal,
+        }
+
+        states secondary_button inherit primary_button,
     }
 }
 
@@ -266,6 +296,35 @@ fn state_sets_inherit_missing_values_from_parent_states() {
 
     theme.reload(&InheritedPathSource).expect("reload");
     assert_eq!(theme.button.press_down.bg.0, 20);
+}
+
+#[test]
+fn state_set_aliases_copy_component_and_states() {
+    let theme = StateAliasTheme::try_from_source(&PathSource).expect("aliased state theme");
+
+    assert_eq!(theme.primary_button.hover.bg.0, 80);
+    assert_eq!(theme.secondary_button.normal.fg.0, 9);
+    assert_eq!(
+        theme
+            .secondary_button
+            .get(StateAliasThemeSecondaryButtonState::Hover)
+            .bg
+            .0,
+        100
+    );
+    assert_eq!(
+        StateAliasThemeSecondaryButtonState::Hover.parent(),
+        Some(StateAliasThemeSecondaryButtonState::Normal)
+    );
+}
+
+#[test]
+fn state_set_aliases_copy_state_inheritance() {
+    let theme =
+        StateAliasTheme::try_from_source(&InheritedPathSource).expect("aliased state theme");
+
+    assert_eq!(theme.primary_button.hover.fg.0, 7);
+    assert_eq!(theme.secondary_button.hover.fg.0, 9);
 }
 
 #[test]

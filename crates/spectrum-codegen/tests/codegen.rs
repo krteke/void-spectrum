@@ -72,6 +72,36 @@ fn expand_schema_supports_stateless_component_instances() {
 }
 
 #[test]
+fn expand_schema_expands_state_set_aliases() {
+    let schema: ThemeSchema = syn::parse2(quote::quote!(
+        pub struct TestTheme {
+            component ButtonTokens {
+                fg: spectrum_theme::Color,
+                bg: spectrum_theme::Color,
+            }
+
+            states primary_button: ButtonTokens {
+                normal,
+                hover extends normal,
+            }
+            states secondary_button inherit primary_button,
+            states tertiary_button inherit secondary_button,
+        }
+    ))
+    .expect("valid schema");
+
+    let code = expand_schema(schema, &facade()).to_string();
+
+    assert!(code.contains("pub primary_button : TestThemePrimaryButtonStates"));
+    assert!(code.contains("pub secondary_button : TestThemeSecondaryButtonStates"));
+    assert!(code.contains("pub tertiary_button : TestThemeTertiaryButtonStates"));
+    assert!(code.contains("pub enum TestThemeSecondaryButtonState"));
+    assert!(code.contains("\"secondary_button.hover.fg\""));
+    assert!(code.contains("\"secondary_button.normal.fg\""));
+    assert!(code.contains("\"tertiary_button.hover.fg\""));
+}
+
+#[test]
 fn writes_generated_contract_to_requested_path() {
     let dir = std::env::temp_dir().join(format!("spectrum-codegen-test-{}", std::process::id()));
     fs::create_dir_all(&dir).expect("temp dir");
@@ -238,4 +268,35 @@ fn expand_schema_reports_unknown_state_components() {
 
     assert!(code.contains("compile_error"));
     assert!(code.contains("unknown state component `ButtonTokens`"));
+}
+
+#[test]
+fn expand_schema_reports_unknown_state_alias_targets() {
+    let schema: ThemeSchema = syn::parse2(quote::quote!(
+        pub struct TestTheme {
+            states secondary_button inherit primary_button,
+        }
+    ))
+    .expect("schema parses");
+
+    let code = expand_schema(schema, &facade()).to_string();
+
+    assert!(code.contains("compile_error"));
+    assert!(code.contains("unknown inherited state set `primary_button`"));
+}
+
+#[test]
+fn expand_schema_reports_state_alias_cycles() {
+    let schema: ThemeSchema = syn::parse2(quote::quote!(
+        pub struct TestTheme {
+            states primary_button inherit secondary_button,
+            states secondary_button inherit primary_button,
+        }
+    ))
+    .expect("schema parses");
+
+    let code = expand_schema(schema, &facade()).to_string();
+
+    assert!(code.contains("compile_error"));
+    assert!(code.contains("state set inheritance cycle"));
 }
