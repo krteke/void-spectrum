@@ -12,7 +12,7 @@ default-members = ["crates/spectrum-theme"]
 resolver = "3"
 
 [workspace.package]
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.88"
 authors = ["Krteke"]
@@ -35,12 +35,12 @@ syn = { version = "2.0.118", features = ["full"] }
 thiserror = "2.0.18"
 toml = "1.1.2"
 
-spectrum-core = { version = "0.1.1", path = "crates/spectrum-core" }
-spectrum-codegen = { version = "0.1.1", path = "crates/spectrum-codegen" }
-spectrum-iced = { version = "0.1.1", path = "crates/spectrum-iced" }
-spectrum-macros = { package = "void-spectrum-macros", version = "0.1.1", path = "crates/spectrum-macros" }
-spectrum-palette = { version = "0.1.1", path = "crates/spectrum-palette" }
-spectrum-ratatui = { version = "0.1.1", path = "crates/spectrum-ratatui" }
+spectrum-core = { version = "0.2.0", path = "crates/spectrum-core" }
+spectrum-codegen = { version = "0.2.0", path = "crates/spectrum-codegen" }
+spectrum-iced = { version = "0.2.0", path = "crates/spectrum-iced" }
+spectrum-macros = { package = "void-spectrum-macros", version = "0.2.0", path = "crates/spectrum-macros" }
+spectrum-palette = { version = "0.2.0", path = "crates/spectrum-palette" }
+spectrum-ratatui = { version = "0.2.0", path = "crates/spectrum-ratatui" }
 
 [workspace.lints.rust]
 missing_docs = "warn"

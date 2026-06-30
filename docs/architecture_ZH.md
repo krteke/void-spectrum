@@ -59,4 +59,4 @@ codegen 负责把 contract path 映射到可复用 Rust 结构体，并在构建
 
 ## 延迟的适配器和导出
 
-CSS、Design Tokens JSON、egui、syntect 以及其他平台输出不属于 `0.1.0`。只有在它们的转换契约具体化之后，才应作为独立的 crate 或 feature 添加。
+CSS、Design Tokens JSON、egui、syntect 以及其他平台输出不属于 `0.2.0`。只有在它们的转换契约具体化之后，才应作为独立的 crate 或 feature 添加。

@@ -5,7 +5,7 @@
 ```toml
 # Cargo.toml
 [dependencies]
-spectrum-theme = "0.1"
+spectrum-theme = "0.2.0"
 ```
 
 The simplest way—write a few lines of DSL to get a type-safe theme struct:
@@ -654,7 +654,7 @@ assert_eq!(theme.spacing.pad.0, 12);
 
 ```toml
 [dependencies]
-spectrum-theme = { version = "0.1", features = ["macros", "toml", "seed"] }
+spectrum-theme = { version = "0.2.0", features = ["macros", "toml", "seed"] }
 ```
 
 | Feature | Purpose |

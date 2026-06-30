@@ -81,5 +81,5 @@ feature.
 ## Deferred adapters and exports
 
 CSS, Design Tokens JSON, egui, syntect, and other platform outputs are not part
-of `0.1.0`. They should be added as focused crates or features only after their
+of `0.2.0`. They should be added as focused crates or features only after their
 conversion contracts are concrete.

@@ -2694,7 +2694,7 @@ dependencies = [
 
 [[package]]
 name = "spectrum-codegen"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2705,14 +2705,14 @@ dependencies = [
 
 [[package]]
 name = "spectrum-core"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "spectrum-iced"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "iced",
  "iced_core",
@@ -2722,7 +2722,7 @@ dependencies = [
 
 [[package]]
 name = "spectrum-palette"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "material-colors",
  "palette",
@@ -2731,7 +2731,7 @@ dependencies = [
 
 [[package]]
 name = "spectrum-ratatui"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "ratatui",
  "spectrum-core",
@@ -2739,7 +2739,7 @@ dependencies = [
 
 [[package]]
 name = "spectrum-theme"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "spectrum-codegen",
  "spectrum-core",
@@ -3106,7 +3106,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "void-spectrum-macros"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
